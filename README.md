@@ -35,5 +35,8 @@
 #### Disclaimer
 This application is for educational purposes only. I do not take responsibility for what you choose to do with this application.
 
+#### Credits
+- *crawly.py* script is modified version of **https://jovian.ai/saini-9** script for scraping google scholar.
+
 #### Donation
 If you like this project, you can give me a cup of coffee :)
