@@ -39,6 +39,6 @@ This application is for educational purposes only. I do not take responsibility 
 - *crawly.py* script is modified version of *https://jovian.ai/saini-9* script for scraping google scholar.
 
 #### Donation
-If you like this project, you can give me a cup of coffee :)
+If you like this project, you can give me a cup of tea :)
 
 [![paypal](https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif)](lokesh.skshukla@gmail.com)
