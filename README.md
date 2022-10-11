@@ -24,15 +24,13 @@
  
 
 #### To do
-Testing
-
-Code documentation
-
-General improvements
-- Add other sources for pdf download
-- Add summarization tool(script) for downloaded pdfs
-- Make scripts for robust against request blocks and other errors
-- Create proper pip package for easy use
+- Testing
+- Code documentation
+- General improvements
+    - Add other sources for pdf download
+    - Add summarization tool(script) for downloaded pdfs
+    - Make scripts for robust against request blocks and other errors
+    - Create proper pip package for easy use
 
 #### Disclaimer
 This application is for educational purposes only. I do not take responsibility for what you choose to do with this application.
