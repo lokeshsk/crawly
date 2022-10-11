@@ -41,4 +41,4 @@ This application is for educational purposes only. I do not take responsibility 
 #### Donation
 If you like this project, you can give me a cup of tea :)
 
-[![paypal](https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif)](lokesh.skshukla@gmail.com)
+[![paypal](https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif)](paypal.me/lokeshsk755)
