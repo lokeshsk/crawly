@@ -3,8 +3,11 @@ Python Code to scrape papers list from google scholar based on query, and to dow
 
 #### To do
 Tests
+
 Code documentation
+
 General improvements
+
 #### Disclaimer
 This application is for educational purposes only. I do not take responsibility for what you choose to do with this application.
 
