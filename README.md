@@ -21,7 +21,8 @@
 
       python scihub_downloader.py
  
- 
+### Contributions
+Feel free to contribute to this project by proposing any change, fix, and enhancement on the *dev* branch
 
 #### To do
 - Testing
