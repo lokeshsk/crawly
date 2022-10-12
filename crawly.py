@@ -3,7 +3,6 @@
 
 # In[1]:
 
-"""Need to install packages pandas and tqdm"""
 
 # import the liberary
 import requests
