@@ -1,6 +1,8 @@
 # crawly
 **Crawly** is a Python tool for downloading scientific papers using Google Scholar, SciHub. The tool is divided into two part (scripts), *crawly.py* tries to download papers list from google scholar and save it in CSV file (Authors, Paper Title, Year, Publication, URL) and *sci-hub_downloader.py* tries to search papers using *Paper Title* on Scihub and downloads pdf on user system. 
 
+It uses selenium to automate the process of downloading papers from sci-hub.
+
 ## How to use
 - Install required packages using *requirements.txt* (I would recommend to create a virtual python/conda environment)
 
