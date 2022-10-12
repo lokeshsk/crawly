@@ -3,7 +3,6 @@
 
 # In[1]:
 
-"""Need to install packages pandas and tqdm"""
 
 # import the liberary
 import requests
@@ -13,13 +12,20 @@ import pandas as pd
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 import urllib.request
-
+from fake_useragent import UserAgent
+ua = UserAgent()
 # In[2]:
+fake_ua = ua.random
 
+"""
 headers = {
     "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36"
 }
-
+"""
+headers = {
+    "user-agent": fake_ua
+}
+print(headers)
 
 def connect(host='http://google.com'):
     try:
@@ -42,13 +48,18 @@ def get_paperinfo(paper_url):
     response = requests.get(url, headers=headers)
 
     # check successful response
-    if response.status_code != 200:
-        print("Status code:", response.status_code)
-        raise Exception("Failed to fetch web page ")
 
+    if(response.status_code == 200):
     # parse using beautiful soup
-    paper_doc = BeautifulSoup(response.text, "html.parser")
-
+        paper_doc = BeautifulSoup(response.text, "html.parser")
+    else:
+        if(response.status_code == 429):
+            #raise Exception("Failed to fetch web page ")
+            #print("Google Scholar is blocking us, need to cool down")
+            return response.status_code
+        else:
+            print("Status code:", response.status_code)
+            return "error"
     return paper_doc
 
 
@@ -150,6 +161,7 @@ page_stop = int(page_range[1]) * 10
 num = int(page_range[1])-int(page_range[0])
 sor = input("How do you want to sort (year wise):-\nType 'ASC' for ascending and 'DESC' for descending order OR 'SKIP' to save without sorting: ")
 print("\nPlease wait white we are crawling the webpages "+page+", total: "+str(num+1)+" pages...\n")
+
 for i in tqdm(range(page_start, page_stop, 10)):
 
     # get url for the each page
@@ -163,45 +175,54 @@ for i in tqdm(range(page_start, page_stop, 10)):
 
     # function for the get content of each page
     doc = get_paperinfo(url)
+    if doc == 429:
+        print("Error:429, Too many request, google scholar is blocking")
+        break
+    elif doc =="error":
+        print("Unable to fetch webpage, raise an issue with status code error message")
+        break
+    else:
+        # function for the collecting tags
+        paper_tag, cite_tag, link_tag, author_tag = get_tags(doc)
 
-    # function for the collecting tags
-    paper_tag, cite_tag, link_tag, author_tag = get_tags(doc)
+        # paper title from each page
+        papername = get_papertitle(paper_tag)
 
-    # paper title from each page
-    papername = get_papertitle(paper_tag)
+        # year , author , publication of the paper
+        year, publication, author = get_author_year_publi_info(author_tag)
 
-    # year , author , publication of the paper
-    year, publication, author = get_author_year_publi_info(author_tag)
+        # url of the paper
+        link = get_link(link_tag)
 
-    # url of the paper
-    link = get_link(link_tag)
+        # add in paper repo dict
+        final = add_in_paper_repo(papername, year, author, publication, link)
 
-    # add in paper repo dict
-    final = add_in_paper_repo(papername, year, author, publication, link)
-
-    # use sleep to avoid status code 429
-    sleep(30)
-
-# Checking for duplicates
-print("\nChecking for duplicates, Please Wait...\n")
-sleep(3)
-final = final.drop_duplicates()
-
-# Sorting
-
-if sor == "ASC" or sor == "asc":
-    print("Sorting the papers year wise (ascending order)...\n")
-    final = final.sort_values(by="Year", ascending=True)
-elif sor == "DESC" or sor == "desc":
-    print("Sorting the papers year wise (descending order)...\n")
-    final = final.sort_values(by="Year", ascending=False)
-else:
-    pass
-# Saving File
-print("Saving the papers list into the file: " + file_name + "_"+page +".csv")
+        # use sleep to avoid status code 429
+        sleep(30)
 try:
-    final.to_csv(file_name + "_"+page +".csv", sep=",", index=False, header=True)
+    final
+    # Checking for duplicates
+    print("\nChecking for duplicates, Please Wait...\n")
+    sleep(3)
+    final = final.drop_duplicates()
+
+    # Sorting
+
+    if sor == "ASC" or sor == "asc":
+        print("Sorting the papers year wise (ascending order)...\n")
+        final = final.sort_values(by="Year", ascending=True)
+    elif sor == "DESC" or sor == "desc":
+        print("Sorting the papers year wise (descending order)...\n")
+        final = final.sort_values(by="Year", ascending=False)
+    else:
+        pass
+    # Saving File
+    print("Saving the papers list into the file: " + file_name + "_"+page +".csv")
+    try:
+        final.to_csv(file_name + "_"+page +".csv", sep=",", index=False, header=True)
+    except:
+        print("Error in saving file")
+    sleep(3)
+    print("\nDone, Thank You!")
 except:
-    print("Error in saving file")
-sleep(3)
-print("\nDone, Thank You!")
+    print("\nPlease try after few hours, as google is currently blocking")

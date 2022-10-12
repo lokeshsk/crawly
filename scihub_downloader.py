@@ -70,9 +70,9 @@ for i in pid_new:
 
         driver.get("http://sci-hub.se/")
 
-        input_box = driver.find_element_by_name('request')
+        input_box = driver.find_element("name",'request')
         input_box.send_keys(i)
-        driver.find_element_by_xpath("//button[@type='submit']").click()
+        driver.find_element("xpath","//button[@type='submit']").click()
         r = requests.get(driver.current_url)
         res= requests.get(driver.current_url)
 
@@ -109,9 +109,9 @@ for i in pid_new:
 
         driver.get("http://sci-hub.se/")
 
-        input_box = driver.find_element_by_name('request')
+        input_box = driver.find_element('name','request')
         input_box.send_keys(i)
-        driver.find_element_by_xpath("//button[@type='submit']").click()
+        driver.find_element("xpath","//button[@type='submit']").click()
         r = requests.get(driver.current_url)
         res= requests.get(driver.current_url)
 
