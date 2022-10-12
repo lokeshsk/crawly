@@ -21,6 +21,8 @@
 
       python scihub_downloader.py
  
+**NOTE:** To run *scihub_downloader.py*, [chromewebdriver](https://chromedriver.chromium.org/downloads) is required. Once *chromewebdriver* is downloaded extract the file and set *environment path* variable.
+
 ### Contributions
 Feel free to contribute to this project by proposing any change, fix, and enhancement on the *dev* branch
 
