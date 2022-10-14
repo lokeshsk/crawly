@@ -6,7 +6,7 @@ It uses selenium to automate the process of downloading papers from sci-hub.
 ## How to use
 - Install required packages using *requirements.txt* (I would recommend to create a virtual python/conda environment)
 
-      pip install requirements.txt
+      pip install -r requirements.txt
 - Run *crawly.py* script to crawl(scrape) the google scholar for a given query
 
       python crawly.py
