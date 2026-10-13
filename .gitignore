@@ -25,3 +25,8 @@ papers_not_found.csv
 *_paper_summaries.md
 *_literature_review.md
 
+# Coverage artifacts
+.coverage
+.coverage.*
+htmlcov/
+

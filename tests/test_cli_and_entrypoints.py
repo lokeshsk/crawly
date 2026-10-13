@@ -210,8 +210,11 @@ class TestCLIAndEntrypoints(unittest.TestCase):
                 os.chdir(old_cwd)
 
     def test_cli_main_subcommands_and_entrypoints(self) -> None:
-        self.assertIsNotNone(build_arg_parser())
-        sample_papers = [Paper(title="CLI SAR Paper", year=2023, doi="10.1000/cli1", abstract="CLI abstract")]
+        sample_papers = [
+            Paper(title="CLI SAR Paper", year=2023, doi="10.1000/cli1", abstract="CLI abstract"),
+            Paper(title="CLI Ref Paper", year=2020, doi="10.1000/cli2", abstract="Ref abstract"),
+            Paper(title="CLI Citing Paper", year=2024, doi="10.1000/cli3", abstract="Citing abstract"),
+        ]
 
         with tempfile.TemporaryDirectory() as tmp:
             tdir = Path(tmp)
@@ -340,7 +343,51 @@ class TestCLIAndEntrypoints(unittest.TestCase):
                 with patch("crawly_core.cli.search_multi_source", return_value=sample_papers):
                     self.assertEqual(main(["search", "radar", "--sources", "all", "-o", "all_src.csv"]), 0)
 
-                # 4. main() when parser returns an unrecognized command
+                # 4. New feature subcommands: snowball, report, zotero, watch, and mode gaps
+                # snowball
+                with patch("crawly_core.cli.fetch_citation_snowball", return_value=(sample_papers[0], [sample_papers[1]], [sample_papers[2]])):
+                    self.assertEqual(main(["snowball", "10.1000/anchor", "-l", "5"]), 0)
+                with patch("crawly_core.cli.fetch_citation_snowball", return_value=(None, [], [])):
+                    self.assertEqual(main(["snowball", "unknown_anchor"]), 0)
+
+                # report
+                self.assertEqual(main(["report", "cli_ds.csv"]), 0)
+                empty_csv = tdir / "empty.csv"
+                empty_csv.write_text("Title,Authors\n", encoding="utf-8")
+                self.assertEqual(main(["report", str(empty_csv)]), 0)
+
+                # zotero
+                with patch("crawly_core.downloader.requests.get", return_value=MagicMock(status_code=200)):
+                    self.assertEqual(main(["zotero", "cli_ds.csv", "-c", "MyCollection"]), 0)
+                self.assertEqual(main(["zotero", str(empty_csv)]), 0)
+
+                # watch
+                with (
+                    patch("crawly_core.cli.search_multi_source", return_value=[sample_papers[0]]),
+                    patch("crawly_core.cli.download_batch_pdfs", return_value={"total": 1, "downloaded": 1}),
+                ):
+                    self.assertEqual(main(["watch", "radar imaging", "-d", "5", "-l", "2"]), 0)
+                with patch("crawly_core.cli.search_multi_source", return_value=[]):
+                    self.assertEqual(main(["watch", "empty topic", "--no-download"]), 0)
+
+                # ai --mode gaps and pipeline --mode gaps
+                self.assertEqual(main(["ai", "cli_ds.csv", "--mode", "gaps"]), 0)
+                with (
+                    patch("crawly_core.cli.search_multi_source", return_value=[sample_papers[0]]),
+                    patch("crawly_core.cli.download_batch_pdfs", return_value={"total": 1, "downloaded": 1}),
+                ):
+                    self.assertEqual(main(["pipeline", "radar", "--mode", "gaps", "-o", "pipe_gaps"]), 0)
+
+                # Interactive TUI menu choices 8, 9, 10, 11
+                with (
+                    patch("crawly_core.cli.Prompt.ask", side_effect=["8", "10.1000/anchor", "9", "cli_ds.csv", "10", "cli_ds.csv", "11", "radar", "0"]),
+                    patch("crawly_core.cli.fetch_citation_snowball", return_value=(sample_papers[0], [], [])),
+                    patch("crawly_core.cli.search_multi_source", return_value=[sample_papers[0]]),
+                    patch("crawly_core.downloader.requests.get", side_effect=OSError("offline")),
+                ):
+                    run_interactive_tui()
+
+                # 5. main() when parser returns an unrecognized command
                 with patch("argparse.ArgumentParser.parse_args", return_value=MagicMock(config=None, command="unknown_cmd")):
                     self.assertEqual(main(["unknown_cmd"]), 0)
 

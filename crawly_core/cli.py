@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from pathlib import Path
 from typing import List, Optional, Sequence
@@ -28,10 +29,12 @@ from .ai_engine import (
     LLMClient,
     PaperRAGIndex,
     discover_local_models,
+    generate_interactive_html_report,
     run_mode_1_per_paper_summaries,
     run_mode_2_literature_review_synthesis,
+    run_mode_gaps_synthesis,
 )
-from .downloader import download_batch_pdfs
+from .downloader import download_batch_pdfs, sync_dataset_to_zotero
 from .models import (
     DEFAULT_API_ENDPOINTS,
     AppConfig,
@@ -41,7 +44,7 @@ from .models import (
     resolve_config_path,
     save_papers_to_csv,
 )
-from .sources import ALL_OPEN_SOURCES, SOURCE_LABELS, search_multi_source
+from .sources import ALL_OPEN_SOURCES, SOURCE_LABELS, fetch_citation_snowball, search_multi_source
 
 console = Console()
 
@@ -571,6 +574,164 @@ def run_doctor_diagnostics(config: AppConfig) -> None:
     console.print(tbl)
 
 
+def run_snowball_flow(doi_or_query: str, config: Optional[AppConfig] = None, output: str = "", limit: int = 10) -> Path:
+    cfg = config or AppConfig.load()
+    console.print(f"\n[bold cyan]━━━ Citation Snowballing: Tracing Network for '{doi_or_query}' ━━━[/bold cyan]")
+    with create_modern_progress() as progress:
+        task = progress.add_task("Tracing Citation Graph (OpenAlex & Semantic Scholar)", total=3)
+        seed, back, fwd = fetch_citation_snowball(
+            doi_or_query,
+            max_backward=limit,
+            max_forward=limit,
+            config=cfg,
+            progress_callback=lambda stage, count: progress.advance(task),
+        )
+
+    if not seed and not back and not fwd:
+        console.print(f"[bold red]✗ Could not locate citation network for '{doi_or_query}'.[/bold red]")
+        return Path(".")
+
+    if seed:
+        console.print(
+            Panel(
+                f"[bold cyan]{seed.clean_title()}[/bold cyan]\n"
+                f"Authors: {seed.authors} ({seed.year}) · Venue: {seed.publication}\n"
+                f"DOI: {seed.doi or 'N/A'} · Citations: {seed.citations}",
+                title="Anchor Seed Paper",
+                border_style="cyan",
+            )
+        )
+
+    tbl = Table(title="Connected Literature Tree", box=box.ROUNDED, header_style="bold cyan")
+    tbl.add_column("Type", width=16)
+    tbl.add_column("Title", style="bold white", ratio=3)
+    tbl.add_column("Year", width=6)
+    tbl.add_column("Authors", style="green", ratio=2)
+    tbl.add_column("DOI", style="dim", width=14)
+
+    for p in back:
+        tbl.add_row("[yellow]Backward (Ref)[/yellow]", p.clean_title()[:65], str(p.year or ""), p.authors[:25], p.doi or "")
+    for p in fwd:
+        tbl.add_row("[green]Forward (Cites)[/green]", p.clean_title()[:65], str(p.year or ""), p.authors[:25], p.doi or "")
+    console.print(tbl)
+
+    all_snow = ([seed] if seed else []) + back + fwd
+    clean_q = re.sub(r"[^a-zA-Z0-9]+", "_", doi_or_query).strip("_")
+    slug = output or ("_".join(clean_q.split()[:3]) + "_snowball.csv")
+    out_csv = Path(slug if slug.endswith(".csv") else f"{slug}.csv")
+    save_papers_to_csv(all_snow, out_csv)
+    export_papers_to_bibtex(all_snow, f"{out_csv.stem}.bib")
+    console.print(f"[bold green]✓ Saved {len(all_snow)} connected papers to:[/bold green] [underline]{out_csv}[/underline]")
+    return out_csv
+
+
+def run_report_flow(csv_path: Path, output: str = "", config: Optional[AppConfig] = None) -> Path:
+    cfg = config or AppConfig.load()
+    papers = load_papers_from_csv(csv_path)
+    if not papers:
+        console.print(f"[bold red]✗ No papers found in {csv_path}.[/bold red]")
+        return Path(".")
+
+    out_dir = csv_path.parent
+    ds_name = csv_path.stem
+    with create_modern_progress() as progress:
+        task = progress.add_task(f"Generating Interactive HTML Dashboard for '{ds_name}'", total=1)
+        html_p = generate_interactive_html_report(
+            papers=papers,
+            dataset_name=ds_name,
+            output_dir=out_dir,
+            config=cfg,
+        )
+        progress.advance(task)
+
+    console.print(f"[bold green]✓ Interactive HTML Review Dashboard generated:[/bold green] [underline]{html_p}[/underline]")
+    return html_p
+
+
+def run_zotero_flow(csv_path: Path, collection_name: str = "", config: Optional[AppConfig] = None) -> Path:
+    cfg = config or AppConfig.load()
+    papers = load_papers_from_csv(csv_path)
+    if not papers:
+        console.print(f"[bold red]✗ No papers found in {csv_path}.[/bold red]")
+        return Path(".")
+
+    col_name = collection_name or csv_path.stem
+    is_live, status_msg, bib_p = sync_dataset_to_zotero(papers, collection_name=col_name, output_dir=csv_path.parent, config=cfg)
+    if is_live:
+        console.print(f"[bold green]✓ {status_msg}[/bold green]")
+    else:
+        console.print(f"[bold yellow]ℹ {status_msg}[/bold yellow]")
+    return bib_p
+
+
+def run_watchdog_flow(
+    query: str,
+    days: int = 7,
+    limit: int = 10,
+    download_pdfs: bool = True,
+    summarize: bool = True,
+    config: Optional[AppConfig] = None,
+) -> Path:
+    import datetime
+    cfg = config or AppConfig.load()
+    console.print(f"\n[bold cyan]━━━ Literature Watchdog: Scanning recent works for '{query}' (past {days} days) ━━━[/bold cyan]")
+    cutoff_date = (datetime.date.today() - datetime.timedelta(days=days)).isoformat()
+
+    with create_modern_progress() as progress:
+        task = progress.add_task(f"Searching OpenAlex & arXiv for recent preprints/papers since {cutoff_date}", total=2)
+        papers = search_multi_source(
+            query=f"{query}",
+            sources=["openalex", "arxiv", "europe_pmc"],
+            limit_per_source=limit,
+            sort_mode="desc",
+            config=cfg,
+            progress_callback=lambda s, c: progress.advance(task),
+        )
+
+    if not papers:
+        console.print(f"[yellow]No new papers discovered in the past {days} days for '{query}'.[/yellow]")
+        return Path(".")
+
+    clean_slug = re.sub(r"[^a-zA-Z0-9]+", "_", query).strip("_")
+    slug = f"Watchdog_{clean_slug}_{datetime.date.today().isoformat()}"
+    out_dir = Path.cwd() / slug
+    out_dir.mkdir(parents=True, exist_ok=True)
+    csv_p = out_dir / f"{slug}.csv"
+    save_papers_to_csv(papers, csv_p)
+    export_papers_to_bibtex(papers, out_dir / f"{slug}.bib")
+
+    if download_pdfs:
+        with create_modern_progress() as progress:
+            dl_task = progress.add_task("Downloading new Open-Access PDFs", total=len(papers))
+            download_batch_pdfs(
+                papers,
+                output_dir=out_dir,
+                config=cfg,
+                progress_callback=lambda i, t, p, ok, s: progress.advance(dl_task),
+            )
+
+    digest_lines = [
+        f"# 🐕 Literature Watchdog Digest — `{query}`",
+        f"*Period: {cutoff_date} to {datetime.date.today().isoformat()} · {len(papers)} works discovered*",
+        "",
+        "## Newly Discovered Works",
+    ]
+    for idx, p in enumerate(papers, start=1):
+        digest_lines.append(
+            f"### {idx}. {p.clean_title()} ({p.year})\n"
+            f"- **Authors:** {p.authors}\n"
+            f"- **Venue:** {p.publication or 'Preprint'}\n"
+            f"- **DOI:** `{p.doi or 'N/A'}` | [Link]({p.url})\n"
+            f"- **Abstract Snippet:** {p.abstract[:280]}...\n"
+        )
+    digest_p = out_dir / f"{slug}_Digest.md"
+    digest_p.write_text("\n".join(digest_lines), encoding="utf-8")
+    generate_interactive_html_report(papers, dataset_name=slug, output_dir=out_dir, config=cfg)
+
+    console.print(f"[bold green]✓ Watchdog digest saved to:[/bold green] [underline]{digest_p}[/underline]")
+    return digest_p
+
+
 def run_interactive_tui() -> None:
     config = AppConfig.load()
     while True:
@@ -579,14 +740,18 @@ def run_interactive_tui() -> None:
         console.print("[bold]Main Menu:[/bold]")
         console.print("  [bold cyan]1.[/bold cyan] Search & Discover Papers [dim](OpenAlex, Semantic Scholar, arXiv, Europe PMC, Crossref, DOAJ, HAL, OpenAIRE)[/dim]")
         console.print("  [bold cyan]2.[/bold cyan] Download Full-Text PDFs [dim](Legal Open Access Default + Optional Risk-Gated Third-Party Fallback)[/dim]")
-        console.print("  [bold cyan]3.[/bold cyan] AI Literature Review & Q&A [dim](Mode 1: Summaries · Mode 2: Literature Review Matrix · Mode 3: Chat with PDFs)[/dim]")
+        console.print("  [bold cyan]3.[/bold cyan] AI Literature Review & Q&A [dim](Mode 1: Summaries · Mode 2: Matrix · Mode 3: RAG Q&A · Mode gaps: Open Gaps)[/dim]")
         console.print("  [bold cyan]4.[/bold cyan] Run End-to-End Automated Pipeline [dim](Search ➔ Download PDFs ➔ AI Literature Review)[/dim]")
-        console.print("  [bold cyan]5.[/bold cyan] Configure AI Models & Settings [dim](Updates config.json: Ollama, LM Studio, OpenAI API, Gemini, Anthropic)[/dim]")
+        console.print("  [bold cyan]5.[/bold cyan] Configure AI Models & Settings [dim](Updates config.json: Ollama, LM Studio, OpenAI API, Gemini, Claude)[/dim]")
         console.print("  [bold cyan]6.[/bold cyan] Export Dataset to BibTeX (.bib) [dim](For Zotero, Mendeley, EndNote & Overleaf/LaTeX)[/dim]")
         console.print("  [bold cyan]7.[/bold cyan] Run System & API Health Doctor")
+        console.print("  [bold cyan]8.[/bold cyan] Citation Graph Snowballing [dim](Trace forward & backward citations around an anchor paper)[/dim]")
+        console.print("  [bold cyan]9.[/bold cyan] Export Interactive HTML Review Dashboard [dim](Single-file dashboard with search & cards)[/dim]")
+        console.print("  [bold cyan]10.[/bold cyan] Sync Dataset to Local Zotero [dim](Direct local HTTP connector or importable bundle with PDFs)[/dim]")
+        console.print("  [bold cyan]11.[/bold cyan] Literature Watchdog [dim](Scan recent preprints & papers for alerts/digest)[/dim]")
         console.print("  [bold cyan]0.[/bold cyan] Exit")
 
-        choice = Prompt.ask("\nSelect an option", choices=["1", "2", "3", "4", "5", "6", "7", "0", "q"], default="1")
+        choice = Prompt.ask("\nSelect an option", choices=["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "0", "q"], default="1")
         if choice in ("0", "q"):
             console.print("[bold cyan]Goodbye! Happy researching![/bold cyan]")
             break
@@ -609,6 +774,20 @@ def run_interactive_tui() -> None:
             console.print(f"[bold green]✓ Exported {len(papers)} BibTeX citations to:[/bold green] [underline]{bib_p}[/underline]")
         elif choice == "7":
             run_doctor_diagnostics(config)
+        elif choice == "8":
+            target = Prompt.ask("Enter seed DOI or paper title to trace").strip()
+            if target:
+                run_snowball_flow(target, config=config)
+        elif choice == "9":
+            csv_p = prompt_select_csv()
+            run_report_flow(csv_p, config=config)
+        elif choice == "10":
+            csv_p = prompt_select_csv()
+            run_zotero_flow(csv_p, config=config)
+        elif choice == "11":
+            query = Prompt.ask("Enter research topic / keywords for Watchdog scan").strip()
+            if query:
+                run_watchdog_flow(query, days=7, config=config)
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
@@ -655,14 +834,14 @@ def build_arg_parser() -> argparse.ArgumentParser:
     )
 
     # ai subcommand
-    p_ai = sub.add_parser("ai", help="Run AI Literature Review (Mode 1, Mode 2, or Mode 3) on a dataset")
+    p_ai = sub.add_parser("ai", help="Run AI Literature Review (Mode 1, Mode 2, Mode 3, or gaps) on a dataset")
     p_ai.add_argument("csv", help="Path to CSV file (e.g. test_1-2.csv)")
     p_ai.add_argument(
         "-m",
         "--mode",
-        choices=["1", "2", "3", "all"],
+        choices=["1", "2", "3", "gaps", "all"],
         default="1",
-        help="1 = Per-Paper Summaries, 2 = Synthesized Literature Review Matrix, 3 = Q&A over PDFs, all = 1+2",
+        help="1 = Per-Paper Summaries, 2 = Synthesis Matrix, 3 = Q&A over PDFs, gaps = Open Challenges Matrix, all = 1+2+gaps",
     )
     p_ai.add_argument("-q", "--question", default="", help="Question for Mode 3 (non-interactive one-shot Q&A)")
     p_ai.add_argument("--provider", default="", help="Override AI provider (ollama, lmstudio, openai_compatible, gemini, anthropic, extractive)")
@@ -675,7 +854,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p_pipe.add_argument("query", help="Search keywords / research topic")
     p_pipe.add_argument("-o", "--output", default="", help="Dataset name / CSV stem")
     p_pipe.add_argument("-l", "--limit", type=int, default=0, help="Max results per source (defaults to config.json)")
-    p_pipe.add_argument("-m", "--mode", choices=["1", "2", "all"], default="all", help="AI review mode to run")
+    p_pipe.add_argument("-m", "--mode", choices=["1", "2", "gaps", "all"], default="all", help="AI review mode to run")
     p_pipe.add_argument(
         "--enable-scihub",
         action="store_true",
@@ -686,6 +865,29 @@ def build_arg_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Confirm you accept all legal risks and absolve developers of liability",
     )
+
+    # snowball subcommand
+    p_snow = sub.add_parser("snowball", help="Trace forward and backward citation network around an anchor paper")
+    p_snow.add_argument("target", help="DOI or paper title string to trace")
+    p_snow.add_argument("-o", "--output", default="", help="Output CSV filename")
+    p_snow.add_argument("-l", "--limit", type=int, default=10, help="Max citations to fetch per direction (default 10)")
+
+    # report subcommand
+    p_rep = sub.add_parser("report", help="Generate an interactive single-file HTML review dashboard for a CSV dataset")
+    p_rep.add_argument("csv", help="Path to CSV dataset")
+    p_rep.add_argument("-o", "--output", default="", help="Output HTML filename")
+
+    # zotero subcommand
+    p_zot = sub.add_parser("zotero", help="Sync dataset papers and local PDFs to Zotero desktop")
+    p_zot.add_argument("csv", help="Path to CSV dataset")
+    p_zot.add_argument("-c", "--collection-name", default="", help="Zotero collection name")
+
+    # watch subcommand
+    p_wat = sub.add_parser("watch", help="Literature Watchdog: scan recent preprints/papers and generate alerts digest")
+    p_wat.add_argument("query", help="Keywords / research topic")
+    p_wat.add_argument("-d", "--days", type=int, default=7, help="Number of past days to scan (default 7)")
+    p_wat.add_argument("-l", "--limit", type=int, default=10, help="Max papers to fetch")
+    p_wat.add_argument("--no-download", action="store_true", help="Skip downloading PDFs")
 
     # export-bibtex subcommand
     p_bib = sub.add_parser("export-bibtex", help="Export a CSV paper dataset to BibTeX (.bib) for Zotero/Mendeley/LaTeX")
@@ -765,6 +967,32 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         else:
             render_header(config)
             console.print(f"[bold cyan]Active configuration file:[/bold cyan] [underline]{saved_path}[/underline]")
+        return 0
+
+    if args.command == "snowball":
+        render_header(config)
+        run_snowball_flow(args.target, config=config, output=args.output, limit=args.limit)
+        return 0
+
+    if args.command == "report":
+        csv_p = Path(args.csv if args.csv.endswith(".csv") else f"{args.csv}.csv")
+        run_report_flow(csv_p, output=args.output, config=config)
+        return 0
+
+    if args.command == "zotero":
+        csv_p = Path(args.csv if args.csv.endswith(".csv") else f"{args.csv}.csv")
+        run_zotero_flow(csv_p, collection_name=args.collection_name, config=config)
+        return 0
+
+    if args.command == "watch":
+        render_header(config)
+        run_watchdog_flow(
+            args.query,
+            days=args.days,
+            limit=args.limit,
+            download_pdfs=not args.no_download,
+            config=config,
+        )
         return 0
 
     if args.command == "search":
@@ -910,6 +1138,24 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             console.print(Panel(Markdown(syn), title="Mode 2: Literature Review & Comparison Matrix", border_style="cyan"))
             console.print(f"[bold green]✓ Mode 2 Literature Review saved to:[/bold green] {rev}")
 
+        if args.mode in ("gaps", "all"):
+            total_gaps = min(len(papers), 30) + 1
+            with create_modern_progress() as progress:
+                task_gaps = progress.add_task("Mode gaps: Synthesizing research gaps & open challenges", total=total_gaps)
+                gaps_txt, gaps_path = run_mode_gaps_synthesis(
+                    papers=papers,
+                    output_dir=out_dir,
+                    dataset_name=dataset_name,
+                    config=config,
+                    progress_callback=lambda s, tot, m: progress.advance(task_gaps),
+                )
+            console.print(Panel(Markdown(gaps_txt), title="Identified Research Gaps & Future Directions", border_style="magenta"))
+            console.print(f"[bold green]✓ Research Gaps Report saved to:[/bold green] {gaps_path}")
+
+        if args.mode in ("1", "2", "gaps", "all"):
+            html_rep = generate_interactive_html_report(papers=papers, dataset_name=dataset_name, output_dir=out_dir, config=config)
+            console.print(f"[bold green]✓ Interactive HTML Review Dashboard generated:[/bold green] [underline]{html_rep}[/underline]")
+
         if args.mode == "3":
             if args.question:
                 with create_modern_progress() as progress:
@@ -1008,6 +1254,21 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                     progress_callback=lambda s_idx, tot, msg: progress.advance(t4),
                 )
             console.print(f"[bold green]✓ Literature Review report:[/bold green] {rev}")
+        if args.mode in ("gaps", "all"):
+            total_gaps = min(len(papers), 30) + 1
+            with create_modern_progress() as progress:
+                t5 = progress.add_task("Step 3c: Synthesizing Research Gaps & Open Challenges", total=total_gaps)
+                _, gaps_rep = run_mode_gaps_synthesis(
+                    papers,
+                    out_dir,
+                    slug,
+                    config=session_cfg,
+                    progress_callback=lambda s_idx, tot, msg: progress.advance(t5),
+                )
+            console.print(f"[bold green]✓ Research Gaps report:[/bold green] {gaps_rep}")
+
+        html_p = generate_interactive_html_report(papers, dataset_name=slug, output_dir=out_dir, config=session_cfg)
+        console.print(f"[bold green]✓ Interactive HTML Review Dashboard:[/bold green] [underline]{html_p}[/underline]")
         return 0
 
     return 0

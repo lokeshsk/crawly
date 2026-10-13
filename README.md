@@ -22,12 +22,19 @@
 
 ## 1. Quick Start for Users (No `pip install` or Dependencies Required!)
 
-Normal users do **not** need to install [`requirements.txt`](requirements.txt). Pre-bundled & compiled executables are available directly in the [`dist/`](dist/) folder with `pypdf`, `rich`, `requests`, `beautifulsoup4`, and [`config.json`](config.json) already bundled inside:
+### ⚡ One-Line Instant Install (Zero Setup)
+- **Linux / macOS / WSL:**
+  ```bash
+  curl -fsSL https://lokeshsk.github.io/crawly/install.sh | bash
+  ```
+- **Windows (PowerShell):**
+  ```powershell
+  irm https://lokeshsk.github.io/crawly/install.ps1 | iex
+  ```
 
-```bash
-git clone https://github.com/lokeshsk/crawly.git
-cd crawly
-```
+---
+
+### Manual Download & Repository Clone
 
 ### Option A: Universal Cross-Platform Bundle (Works on BOTH Windows & Linux / WSL)
 Unzip [`dist/crawly-universal-windows-linux.zip`](dist/crawly-universal-windows-linux.zip) (or run directly from [`dist/`](dist/)):
@@ -177,24 +184,39 @@ All commands display modern multi-column progress bars (spinner, progress bar, p
 # 2. Search across all legal open databases (saves CSV + BibTeX)
 ./dist/crawly search "synthetic aperture radar" -o sar_papers.csv --limit 10
 
-# 3. Download PDFs using strictly Legal Open Access repositories (Default)
+# 3. Citation Graph Snowballing (trace forward citing & backward referenced works)
+./dist/crawly snowball "10.1109/TGRS.2023.123456" -l 10
+./dist/crawly snowball "synthetic aperture radar imaging" -o snowball_radar.csv
+
+# 4. Download PDFs using strictly Legal Open Access repositories (Default)
 ./dist/crawly download sar_papers.csv
 
-# 4. Run AI Literature Review Modes
+# 5. Run AI Literature Review Modes
 #    Mode 1: Per-Paper Structured Summaries (Objective, Methodology, Key Findings, Limitations)
 ./dist/crawly ai sar_papers.csv --mode 1
 #    Mode 2: Synthesized Cross-Paper Literature Review & Markdown Comparison Matrix
 ./dist/crawly ai sar_papers.csv --mode 2
 #    Mode 3: Citation-Grounded RAG Q&A over Downloaded PDFs
 ./dist/crawly ai sar_papers.csv --mode 3 -q "What are the main compressed sensing methods for SAR?"
+#    Mode gaps: Automated Research Gaps & Open Challenges Roadmap
+./dist/crawly ai sar_papers.csv --mode gaps
 
-# 5. Run the complete end-to-end pipeline (Search -> Download Legal OA PDFs -> AI Review)
+# 6. Generate an Interactive Single-File HTML Review Dashboard
+./dist/crawly report sar_papers.csv
+
+# 7. Sync Papers & Full-Text PDFs to Local Zotero Desktop
+./dist/crawly zotero sar_papers.csv -c "SAR_Survey"
+
+# 8. Literature Watchdog (Scan latest preprints and generate alerts digest)
+./dist/crawly watch "SAR despeckling" -o watchdog_radar.md
+
+# 9. Run the complete end-to-end pipeline (Search -> Download Legal OA PDFs -> AI Review)
 ./dist/crawly pipeline "deep learning SAR despeckling" -o sar_dl --limit 8 --mode all
 
-# 6. Export any CSV dataset to BibTeX (.bib) for Zotero / Mendeley / Overleaf
+# 10. Export any CSV dataset to BibTeX (.bib) for Zotero / Mendeley / Overleaf
 ./dist/crawly export-bibtex sar_papers.csv
 
-# 7. Run System & API Health Doctor
+# 11. Run System & API Health Doctor
 ./dist/crawly doctor
 ```
 

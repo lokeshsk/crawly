@@ -162,6 +162,9 @@ jobs:
             artifact_name: crawly-windows-bundle
 
     runs-on: ${{ matrix.os }}
+    env:
+      PYTHONUTF8: "1"
+      PYTHONIOENCODING: "utf-8"
 
     steps:
       - name: Checkout release tag ${{ needs.auto-version-and-gate.outputs.release_tag }}
@@ -212,8 +215,8 @@ jobs:
 
       - name: Consolidate Release Assets
         run: |
-          if [ -f release_assets_win/crawly-windows-x86_64.exe ]; then
-            cp release_assets_win/crawly-windows-x86_64.exe release_assets/
+          if [ -d release_assets_win ]; then
+            find release_assets_win -type f \( -name "*.exe" \) -exec cp {} release_assets/ \;
           fi
           chmod +x release_assets/crawly release_assets/crawly-linux-x86_64 release_assets/crawly.pyz || true
           ls -lh release_assets/
@@ -244,3 +247,4 @@ jobs:
             release_assets/crawly-windows-x86_64.exe
             release_assets/crawly.pyz
             release_assets/config.json
+

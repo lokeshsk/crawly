@@ -258,3 +258,38 @@ class TestDownloader(unittest.TestCase):
                 self.assertEqual(len(cb_calls), 2)
                 self.assertTrue((out_dir / "papers_not_found.csv").exists())
                 self.assertTrue(csv_file.exists())
+
+            # Test sync_dataset_to_zotero
+            from crawly_core.downloader import sync_dataset_to_zotero
+
+            local_pdf = out_dir / p_oa.safe_filename()
+            local_pdf.write_bytes(b"%PDF-1.5 test")
+            p_oa.local_pdf = str(local_pdf)
+
+            # 1. Zotero connector online (200)
+            mock_zot_resp = MagicMock()
+            mock_zot_resp.status_code = 200
+            with patch("crawly_core.downloader.requests.get", return_value=mock_zot_resp):
+                is_live, msg, bib_p = sync_dataset_to_zotero([p_oa], collection_name="Test Collection", output_dir=out_dir)
+                self.assertTrue(is_live)
+                self.assertIn("ONLINE", msg)
+                self.assertTrue(bib_p.exists())
+                content = bib_p.read_text(encoding="utf-8")
+                self.assertIn("file =", content)
+                self.assertIn("application/pdf", content)
+
+            # 2. Zotero non-200 status code
+            mock_zot_err = MagicMock()
+            mock_zot_err.status_code = 502
+            with patch("crawly_core.downloader.requests.get", return_value=mock_zot_err):
+                is_live2, msg2, _ = sync_dataset_to_zotero([p_oa], collection_name="Err Col", output_dir=out_dir)
+                self.assertFalse(is_live2)
+                self.assertIn("502", msg2)
+
+            # 3. Zotero connector offline (exception)
+            with patch("crawly_core.downloader.requests.get", side_effect=OSError("Connection refused")):
+                is_live3, msg3, bib_p3 = sync_dataset_to_zotero([p_oa], collection_name="", output_dir=out_dir)
+                self.assertFalse(is_live3)
+                self.assertIn("not running locally", msg3)
+                self.assertTrue(bib_p3.exists())
+

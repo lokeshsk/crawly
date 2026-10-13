@@ -480,3 +480,71 @@ def download_batch_pdfs(
         "missing": total - downloaded,
         **by_source,
     }
+
+
+def sync_dataset_to_zotero(
+    papers: Sequence[Paper],
+    collection_name: str,
+    output_dir: Optional[Path] = None,
+    config: Optional[AppConfig] = None,
+) -> Tuple[bool, str, Path]:
+    """Sync dataset papers to local Zotero desktop or produce a Zotero-ready bundle with linked PDFs.
+
+    Returns:
+        (is_live_connected, status_message, zotero_bib_path)
+    """
+    cfg = config or AppConfig.load()
+    out_dir = output_dir or Path.cwd()
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    slug = re.sub(r"[^a-zA-Z0-9_\-]+", "_", collection_name).strip("_") or "dataset"
+    zotero_bib = out_dir / f"Zotero_Import_{slug}.bib"
+
+    # 1. Build Zotero-compatible BibTeX entries with linked PDF attachments (file = {path:application/pdf})
+    entries: List[str] = []
+    for idx, p in enumerate(papers, start=1):
+        ckey = p.bibtex_key() or f"paper_{idx}"
+        lines = [f"@article{{{ckey},"]
+        lines.append(f"  title = {{{p.clean_title()}}},")
+        if p.authors:
+            lines.append(f"  author = {{{p.authors}}},")
+        if p.year > 0:
+            lines.append(f"  year = {{{p.year}}},")
+        if p.publication:
+            lines.append(f"  journal = {{{p.publication}}},")
+        if p.doi:
+            lines.append(f"  doi = {{{p.doi}}},")
+        if p.url:
+            lines.append(f"  url = {{{p.url}}},")
+
+        pdf_p = Path(p.local_pdf) if p.local_pdf else (out_dir / p.safe_filename())
+        if pdf_p.exists():
+            abs_pdf = pdf_p.resolve()
+            lines.append(f"  file = {{{abs_pdf}:application/pdf}},")
+        lines.append("}")
+        entries.append("\n".join(lines))
+
+    zotero_bib.write_text("\n\n".join(entries), encoding="utf-8")
+
+    # 2. Probe local Zotero desktop connector HTTP interface
+    is_live = False
+    status_msg = ""
+    try:
+        r = requests.get("http://127.0.0.1:23119/connector/ping", timeout=2.0)
+        if r.status_code == 200:
+            is_live = True
+            status_msg = (
+                f"Zotero desktop is ONLINE at localhost:23119. Generated Zotero-ready bundle '{zotero_bib.name}' "
+                f"with {len(papers)} items and full-text PDF attachments."
+            )
+        else:
+            status_msg = f"Zotero responded with HTTP {r.status_code}."
+    except Exception:
+        is_live = False
+        status_msg = (
+            f"Zotero desktop is not running locally (port 23119). Generated Zotero bundle '{zotero_bib.name}'. "
+            f"Open Zotero and select File -> Import -> select '{zotero_bib.name}' to automatically import all citations and linked PDFs."
+        )
+
+    return is_live, status_msg, zotero_bib
+

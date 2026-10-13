@@ -27,6 +27,16 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 DIST = ROOT / "dist"
 
+# Configure UTF-8 encoding on Windows to prevent UnicodeEncodeError in CI
+if sys.platform == "win32":
+    try:
+        if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        if hasattr(sys.stderr, "reconfigure"):
+            sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 BUNDLED_PACKAGES = [
     "requests",
     "urllib3",
@@ -145,41 +155,35 @@ def build_native_pyinstaller_binary() -> None:
     if importlib.util.find_spec("PyInstaller") is None:
         print("ℹ PyInstaller not installed; skipping native OS binary compilation (universal crawly.pyz is ready).")
         return
-    sys_name = platform.system().lower()
-    arch = platform.machine().lower()
+    sys_name = "windows" if os.name == "nt" or "windows" in platform.system().lower() else platform.system().lower()
+    raw_arch = platform.machine().lower()
+    arch = "x86_64" if raw_arch in ("amd64", "x86_64", "x64") else raw_arch
     bin_name = f"crawly-{sys_name}-{arch}"
     print(f"Compiling native standalone binary '{bin_name}' with PyInstaller...")
     cmd = [
         sys.executable,
         "-m",
         "PyInstaller",
+        "--noconfirm",
         "--onefile",
         "--clean",
         "--name",
         bin_name,
-        "--exclude-module",
-        "pandas",
-        "--exclude-module",
-        "numpy",
-        "--exclude-module",
-        "scipy",
-        "--exclude-module",
-        "matplotlib",
-        "--exclude-module",
-        "torch",
-        "--exclude-module",
-        "PyQt6",
-        "--exclude-module",
-        "PySide6",
+        "--distpath",
+        str(DIST),
         str(ROOT / "crawly.py"),
     ]
-    subprocess.run(cmd, cwd=str(ROOT), check=True)
+    proc = subprocess.run(cmd, cwd=str(ROOT))
+    if proc.returncode != 0:
+        print(f"[!] PyInstaller compilation exited with code {proc.returncode}")
+        sys.exit(proc.returncode)
+
     # Clean temporary PyInstaller build artifacts
     shutil.rmtree(ROOT / "build", ignore_errors=True)
     spec_file = ROOT / f"{bin_name}.spec"
     if spec_file.exists():
         spec_file.unlink()
-    out_bin = DIST / (f"{bin_name}.exe" if os.name == "nt" else bin_name)
+    out_bin = DIST / (f"{bin_name}.exe" if sys_name == "windows" else bin_name)
     if out_bin.exists():
         print(f"✓ Built native standalone executable: {out_bin} ({out_bin.stat().st_size / (1024*1024):.2f} MB)")
 

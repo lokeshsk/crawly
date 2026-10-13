@@ -443,8 +443,27 @@ Main Menu:
     <section id="downloads">
       <h2 class="section-title">Zero-Setup Downloads for Windows &amp; Linux / WSL</h2>
       <p class="section-sub">
-        Normal users never need to run <code>pip install</code> or touch <code>requirements.txt</code>. All libraries (<code>pypdf</code>, <code>rich</code>, <code>requests</code>, <code>beautifulsoup4</code>) and <code>config.json</code> are pre-bundled in <a href="https://github.com/lokeshsk/crawly/tree/main/dist"><code>dist/</code></a>.
+        Normal users never need to run <code>pip install</code> or touch <code>requirements.txt</code>. Run the one-line terminal installer or download standalone executables directly:
       </p>
+
+      <!-- One-Line Installers -->
+      <div style="max-width: 860px; margin: 0 auto 2.5rem auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 1rem;">
+        <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 0.75rem; padding: 1.15rem;">
+          <div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 0.4rem; color: #38bdf8;">🐧 Linux / macOS / WSL (One-Liner)</div>
+          <div class="code-snippet">
+            <code>curl -fsSL https://lokeshsk.github.io/crawly/install.sh | bash</code>
+            <button class="copy-btn" data-copy="curl -fsSL https://lokeshsk.github.io/crawly/install.sh | bash" type="button">Copy</button>
+          </div>
+        </div>
+        <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 0.75rem; padding: 1.15rem;">
+          <div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 0.4rem; color: #38bdf8;">🪟 Windows PowerShell (One-Liner)</div>
+          <div class="code-snippet">
+            <code>irm https://lokeshsk.github.io/crawly/install.ps1 | iex</code>
+            <button class="copy-btn" data-copy="irm https://lokeshsk.github.io/crawly/install.ps1 | iex" type="button">Copy</button>
+          </div>
+        </div>
+      </div>
+
       <div class="grid">
         <div class="card">
           <h3>🪟 Windows &amp; Linux Universal Bundle</h3>
@@ -479,31 +498,43 @@ Main Menu:
     <!-- Core Features -->
     <section id="features">
       <h2 class="section-title">Built for Serious Literature Reviews</h2>
-      <p class="section-sub">Everything a researcher needs from initial keyword search to full-text synthesis and LaTeX citation export.</p>
+      <p class="section-sub">Everything a researcher needs from initial keyword search to citation networks, full-text synthesis, and Zotero integration.</p>
       <div class="grid">
         <div class="card">
           <h3>🌐 8+ Legal Open-Access APIs</h3>
-          <p>Queries OpenAlex, Semantic Scholar, arXiv, Europe PMC / PubMed Central, Crossref, DOAJ, HAL Open Archive, and OpenAIRE concurrently with live rich progress bars.</p>
+          <p>Queries OpenAlex, Semantic Scholar, arXiv, Europe PMC, Crossref, DOAJ, HAL Open Archive, and OpenAIRE concurrently with live rich progress bars.</p>
         </div>
         <div class="card">
           <h3>📥 Smart DOI &amp; PDF Waterfall</h3>
           <p>Resolves missing DOIs from existing CSVs via URL parsing, OpenAlex, and Crossref, then checks Unpaywall, arXiv preprints, Europe PMC, and OpenAlex OA with strict <code>%PDF-</code> verification.</p>
         </div>
         <div class="card">
-          <h3>🤖 3 AI Literature Review Modes</h3>
-          <p>Choose between <strong>Mode 1</strong> (Structured Per-Paper Summaries), <strong>Mode 2</strong> (Cross-Paper Synthesis &amp; Comparison Matrix), and <strong>Mode 3</strong> (Citation-Grounded RAG Q&amp;A over PDFs).</p>
+          <h3>🌲 Citation Graph Snowballing</h3>
+          <p>Given an anchor DOI or paper, <code>crawly snowball</code> traces foundational works cited (backward) and recent papers citing it (forward) via OpenAlex &amp; Semantic Scholar.</p>
+        </div>
+        <div class="card">
+          <h3>📊 Interactive HTML Dashboard</h3>
+          <p>Run <code>crawly report</code> to export a self-contained interactive HTML review dashboard with live search, filters, paper cards, dark mode, and BibTeX copy.</p>
+        </div>
+        <div class="card">
+          <h3>🗂️ Direct Local Zotero Sync</h3>
+          <p>Run <code>crawly zotero</code> to sync your discovered dataset and downloaded PDFs directly into your local Zotero desktop library via connector API or linked PDF bundle.</p>
+        </div>
+        <div class="card">
+          <h3>🎯 Research Gaps &amp; Roadmap</h3>
+          <p>Mode <code>gaps</code> focuses on methodology constraints, assumptions, and limitations across papers to produce an actionable matrix of open challenges for researchers.</p>
+        </div>
+        <div class="card">
+          <h3>🐕 Literature Watchdog Alerts</h3>
+          <p>Run <code>crawly watch</code> to scan recent preprints and journal articles from the past 7 days matching your research topics and generate an alert digest.</p>
         </div>
         <div class="card">
           <h3>⚙️ Single <code>config.json</code> Setup</h3>
-          <p>Configure <strong>Ollama</strong>, <strong>LM Studio</strong>, OpenAI-compatible servers (vLLM, Groq, OpenRouter, DeepSeek), Gemini, Claude, temperature, and default limits in one labeled <code>config.json</code> file.</p>
+          <p>Configure <strong>Ollama</strong>, <strong>LM Studio</strong>, OpenAI-compatible servers (vLLM, Groq, DeepSeek), Gemini, Claude, temperature, and limits in one labeled file.</p>
         </div>
         <div class="card">
           <h3>📚 Automatic BibTeX (.bib) Export</h3>
-          <p>Every search and download batch automatically exports a clean <code>.bib</code> file ready for Zotero, Mendeley, EndNote, or Overleaf/LaTeX manuscripts.</p>
-        </div>
-        <div class="card">
-          <h3>🩺 System &amp; API Health Doctor</h3>
-          <p>Run <code>crawly doctor</code> anytime to verify connectivity across all 8 scholarly APIs and your local or cloud AI model server in seconds.</p>
+          <p>Every search and download batch automatically exports a clean <code>.bib</code> file ready for Overleaf, LaTeX, Zotero, Mendeley, and JabRef.</p>
         </div>
       </div>
     </section>

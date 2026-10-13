@@ -228,3 +228,40 @@ class TestAIEngine(unittest.TestCase):
                 # Empty chunks edge case
                 rag.chunks = []
                 self.assertIn("No indexed text passages", rag.answer_question("anything", config=cfg_ext))
+
+            # Test run_mode_gaps_synthesis (extractive fallback and LLM mode)
+            from crawly_core.ai_engine import generate_interactive_html_report, run_mode_gaps_synthesis
+
+            gaps_cbs = []
+            gaps_ext, gaps_p = run_mode_gaps_synthesis(
+                [p1, p_short],
+                output_dir=out_dir,
+                dataset_name="test_gaps",
+                config=cfg_ext,
+                progress_callback=lambda s, t, msg: gaps_cbs.append(msg),
+            )
+            self.assertTrue(gaps_p.exists())
+            self.assertIn("AI Research Gaps", gaps_ext)
+            self.assertGreaterEqual(len(gaps_cbs), 2)
+
+            with patch.object(LLMClient, "generate", return_value="## LLM Open Challenges Synthesis"):
+                gaps_llm, _ = run_mode_gaps_synthesis([p1], output_dir=out_dir, dataset_name="test_gaps", config=cfg_ext)
+                self.assertIn("## LLM Open Challenges Synthesis", gaps_llm)
+
+            # Test generate_interactive_html_report
+            html_rep = generate_interactive_html_report(
+                [p1, p_short, p_local],
+                dataset_name="test_ds",
+                output_dir=out_dir,
+                summaries={p1.clean_title(): "Summary for p1"},
+                synthesis_md="## Synthesis content",
+                gaps_md="## Gaps content",
+                config=cfg_ext,
+            )
+            self.assertTrue(html_rep.exists())
+            html_txt = html_rep.read_text(encoding="utf-8")
+            self.assertIn("Literature Review Dashboard", html_txt)
+            self.assertIn("Compressed Sensing SAR Imaging", html_txt)
+            self.assertIn("Summary for p1", html_txt)
+            self.assertIn("Synthesis content", html_txt)
+

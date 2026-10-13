@@ -44,6 +44,14 @@ class TestModels(unittest.TestCase):
         p_empty = Paper(title="", doi="10.1000/xyz.pdf")
         self.assertEqual(p_empty.safe_filename(), "10.1000_xyz.pdf")
 
+        self.assertTrue(p1.has_pdf())
+        p1.ai_summary = "Updated summary"
+        self.assertEqual(p1.ai_summary, "Updated summary")
+        bib_single = p1.to_bibtex()
+        self.assertIn("url = {https://doi.org/10.1109/test.1}", bib_single)
+        self.assertIn("year = {2024}", bib_single)
+        self.assertIn("journal = {IEEE Transactions}", bib_single)
+
         row = p1.to_csv_row()
         p1_reloaded = Paper.from_csv_row({**row, "AI Summary": "Summary!"})
         self.assertEqual(p1_reloaded.year, 2024)

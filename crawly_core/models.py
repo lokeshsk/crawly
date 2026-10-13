@@ -143,6 +143,51 @@ class Paper:
             cleaned += ".pdf"
         return cleaned
 
+    def has_pdf(self) -> bool:
+        """Check if paper has a downloaded local PDF or an online PDF URL."""
+        return bool((self.local_pdf and str(self.local_pdf).strip()) or (self.pdf_url and str(self.pdf_url).strip()))
+
+    def bibtex_key(self) -> str:
+        """Generate a clean BibTeX citation key (e.g. vaswani2017attention)."""
+        author_part = re.sub(r"[^a-zA-Z0-9]+", "", (self.authors or "paper").split(",")[0].split()[-1] if (self.authors and " " in self.authors) else (self.authors.split(",")[0] if self.authors else "paper")).lower() or "paper"
+        yr_digits = re.sub(r"[^0-9]", "", str(self.year or ""))
+        yr = yr_digits if yr_digits else "nd"
+        title_word = re.sub(r"[^a-zA-Z0-9]+", "", self.clean_title().split()[0]).lower() if self.clean_title() else "work"
+        return f"{author_part}{yr}{title_word}"
+
+    def to_bibtex(self) -> str:
+        """Generate a formatted BibTeX entry string for this paper."""
+        ckey = self.bibtex_key()
+        bib_authors = " and ".join([a.strip() for a in (self.authors or "Unknown").split(",") if a.strip()])
+        lines = [
+            f"@article{{{ckey},",
+            f"  title = {{{self.clean_title()}}},",
+            f"  author = {{{bib_authors}}},",
+        ]
+        yr_digits = re.sub(r"[^0-9]", "", str(self.year or ""))
+        if yr_digits and int(yr_digits) > 0:
+            lines.append(f"  year = {{{yr_digits}}},")
+        if self.publication and self.publication != "Unknown":
+            lines.append(f"  journal = {{{self.publication}}},")
+        if self.doi:
+            lines.append(f"  doi = {{{self.doi}}},")
+        if self.url and self.url != "NA":
+            lines.append(f"  url = {{{self.url}}},")
+        if self.abstract:
+            safe_abs = self.abstract.replace("{", "").replace("}", "")[:1000]
+            lines.append(f"  abstract = {{{safe_abs}}},")
+        lines.append("}")
+        return "\n".join(lines)
+
+    @property
+    def ai_summary(self) -> str:
+        """Alias for summary."""
+        return self.summary
+
+    @ai_summary.setter
+    def ai_summary(self, val: str) -> None:
+        self.summary = val
+
     def to_csv_row(self) -> Dict[str, Any]:
         return {
             "Paper Title": self.clean_title(),

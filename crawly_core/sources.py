@@ -82,6 +82,50 @@ def strip_jats_xml(text: str) -> str:
     return re.sub(r"\s+", " ", cleaned).strip()
 
 
+def _parse_openalex_item(item: dict) -> Paper:
+    title = (item.get("title") or item.get("display_name") or "").strip()
+    year = item.get("publication_year") or 0
+    authorships = item.get("authorships") or []
+    author_names = [
+        (a.get("author") or {}).get("display_name", "")
+        for a in authorships[:5]
+        if isinstance(a, dict) and (a.get("author") or {}).get("display_name")
+    ]
+    authors = ", ".join(author_names) if author_names else "Unknown"
+    primary_loc = item.get("primary_location") or {}
+    source_info = primary_loc.get("source") or {}
+    publication = source_info.get("display_name") or "OpenAlex"
+    doi = normalize_doi(item.get("doi"))
+    oa_info = item.get("open_access") or {}
+    best_oa = item.get("best_oa_location") or {}
+    pdf_url = (
+        best_oa.get("pdf_url")
+        or primary_loc.get("pdf_url")
+        or oa_info.get("oa_url")
+        or ""
+    )
+    landing_url = (
+        primary_loc.get("landing_page_url")
+        or (f"https://doi.org/{doi}" if doi else "")
+        or item.get("id")
+        or "NA"
+    )
+    abstract = reconstruct_openalex_abstract(item.get("abstract_inverted_index"))
+    citations = item.get("cited_by_count") or 0
+    return Paper(
+        title=title,
+        year=int(year) if year else 0,
+        authors=authors,
+        publication=publication,
+        url=landing_url,
+        doi=doi,
+        pdf_url=pdf_url or "",
+        abstract=abstract,
+        citations=int(citations) if citations else 0,
+        source="OpenAlex",
+    )
+
+
 def search_openalex(
     query: str,
     limit: int = 20,
@@ -103,51 +147,9 @@ def search_openalex(
             return papers
         data = resp.json()
         for item in data.get("results", [])[:limit]:
-            title = (item.get("title") or item.get("display_name") or "").strip()
-            if not title:
-                continue
-            year = item.get("publication_year") or 0
-            authorships = item.get("authorships") or []
-            author_names = [
-                (a.get("author") or {}).get("display_name", "")
-                for a in authorships[:5]
-                if (a.get("author") or {}).get("display_name")
-            ]
-            authors = ", ".join(author_names) if author_names else "Unknown"
-            primary_loc = item.get("primary_location") or {}
-            source_info = primary_loc.get("source") or {}
-            publication = source_info.get("display_name") or "OpenAlex"
-            doi = normalize_doi(item.get("doi"))
-            oa_info = item.get("open_access") or {}
-            best_oa = item.get("best_oa_location") or {}
-            pdf_url = (
-                best_oa.get("pdf_url")
-                or primary_loc.get("pdf_url")
-                or oa_info.get("oa_url")
-                or ""
-            )
-            landing_url = (
-                primary_loc.get("landing_page_url")
-                or (f"https://doi.org/{doi}" if doi else "")
-                or item.get("id")
-                or "NA"
-            )
-            abstract = reconstruct_openalex_abstract(item.get("abstract_inverted_index"))
-            citations = item.get("cited_by_count") or 0
-            papers.append(
-                Paper(
-                    title=title,
-                    year=int(year) if year else 0,
-                    authors=authors,
-                    publication=publication,
-                    url=landing_url,
-                    doi=doi,
-                    pdf_url=pdf_url or "",
-                    abstract=abstract,
-                    citations=int(citations) if citations else 0,
-                    source="OpenAlex",
-                )
-            )
+            p = _parse_openalex_item(item)
+            if p.title:
+                papers.append(p)
     except Exception:
         pass
     return papers
@@ -836,3 +838,164 @@ def search_multi_source(
         merged.sort(key=lambda p: p.citations, reverse=True)
 
     return merged
+
+
+def fetch_citation_snowball(
+    doi_or_query: str,
+    max_backward: int = 10,
+    max_forward: int = 10,
+    config: Optional[AppConfig] = None,
+    progress_callback: Optional[Callable[[str, int], None]] = None,
+) -> Tuple[Optional[Paper], List[Paper], List[Paper]]:
+    """Trace citation network forward and backward around an anchor paper.
+
+    Returns:
+        (seed_paper, backward_citations, forward_citations)
+    """
+    cfg = config or AppConfig.load()
+    clean_target = (doi_or_query or "").strip()
+    if not clean_target:
+        return None, [], []
+
+    ep_map = cfg.api_endpoints or {}
+    polite_headers = get_polite_headers(cfg)
+    is_doi = bool(re.search(r"10\.\d{4,9}/", clean_target) or clean_target.strip().startswith("10."))
+    norm_doi = normalize_doi(clean_target) if is_doi else ""
+
+    seed_paper: Optional[Paper] = None
+    openalex_work_id: Optional[str] = None
+    referenced_ids: List[str] = []
+
+    # 1. Fetch seed paper from OpenAlex
+    oa_base = ep_map.get("openalex_works", DEFAULT_API_ENDPOINTS["openalex_works"]).rstrip("/")
+    if norm_doi:
+        try:
+            r = requests.get(f"{oa_base}/https://doi.org/{norm_doi}", headers=polite_headers, timeout=cfg.request_timeout)
+            if r.status_code == 200:
+                item = r.json()
+                parsed = _parse_openalex_item(item)
+                if parsed.title:
+                    seed_paper = parsed
+                    openalex_work_id = str(item.get("id") or "").split("/")[-1]
+                    referenced_ids = [str(w).split("/")[-1] for w in item.get("referenced_works", []) if w]
+        except Exception:
+            seed_paper = None
+
+    if not seed_paper:
+        try:
+            params = {"search": clean_target, "per-page": 1}
+            r = requests.get(oa_base, params=params, headers=polite_headers, timeout=cfg.request_timeout)
+            if r.status_code == 200:
+                results = r.json().get("results", [])
+                if results:
+                    item = results[0]
+                    seed_paper = _parse_openalex_item(item)
+                    openalex_work_id = str(item.get("id") or "").split("/")[-1]
+                    referenced_ids = [str(w).split("/")[-1] for w in item.get("referenced_works", []) if w]
+        except Exception:
+            seed_paper = None
+
+    backward_papers: List[Paper] = []
+    forward_papers: List[Paper] = []
+
+    if progress_callback and seed_paper:
+        progress_callback("Anchor Seed Paper", 1)
+
+    # 2. Fetch Backward Citations (Foundational Works Cited)
+    if referenced_ids and max_backward > 0:
+        pick_ids = referenced_ids[:max_backward]
+        try:
+            filt_str = "|".join(pick_ids)
+            r_back = requests.get(
+                oa_base,
+                params={"filter": f"openalex_id:{filt_str}", "per-page": len(pick_ids)},
+                headers=polite_headers,
+                timeout=cfg.request_timeout,
+            )
+            if r_back.status_code == 200:
+                for b_item in r_back.json().get("results", []):
+                    p = _parse_openalex_item(b_item)
+                    if p.title:
+                        backward_papers.append(p)
+        except Exception:
+            pass
+
+    if progress_callback:
+        progress_callback("Backward References", len(backward_papers))
+
+    # 3. Fetch Forward Citations (Works Citing the Seed Paper)
+    if openalex_work_id and max_forward > 0:
+        try:
+            r_fwd = requests.get(
+                oa_base,
+                params={
+                    "filter": f"cites:{openalex_work_id}",
+                    "sort": "cited_by_count:desc",
+                    "per-page": max_forward,
+                },
+                headers=polite_headers,
+                timeout=cfg.request_timeout,
+            )
+            if r_fwd.status_code == 200:
+                for f_item in r_fwd.json().get("results", []):
+                    p = _parse_openalex_item(f_item)
+                    if p.title:
+                        forward_papers.append(p)
+        except Exception:
+            pass
+
+    if progress_callback:
+        progress_callback("Forward Citations", len(forward_papers))
+
+    # Fallback to Semantic Scholar Graph API if OpenAlex yielded zero connections
+    if (not backward_papers and not forward_papers) and norm_doi:
+        try:
+            s2_headers = {"User-Agent": cfg.browser_user_agent}
+            if cfg.semantic_scholar_api_key:
+                s2_headers["x-api-key"] = cfg.semantic_scholar_api_key
+            s2_url = f"https://api.semanticscholar.org/graph/v1/paper/{norm_doi}"
+            fields = "title,authors,year,citationCount,references.title,references.authors,references.year,references.externalIds,citations.title,citations.authors,citations.year,citations.externalIds"
+            r_s2 = requests.get(s2_url, params={"fields": fields}, headers=s2_headers, timeout=cfg.request_timeout)
+            if r_s2.status_code == 200:
+                data = r_s2.json()
+                if not seed_paper and data.get("title"):
+                    s_authors = ", ".join(a.get("name", "") for a in data.get("authors", []) if a.get("name"))
+                    seed_paper = Paper(
+                        title=data["title"],
+                        authors=s_authors,
+                        year=str(data.get("year") or ""),
+                        doi=norm_doi,
+                        citations=int(data.get("citationCount") or 0),
+                        source="Semantic Scholar",
+                    )
+                for ref in data.get("references", [])[:max_backward]:
+                    if ref and ref.get("title"):
+                        ref_doi = (ref.get("externalIds") or {}).get("DOI", "")
+                        ref_auth = ", ".join(a.get("name", "") for a in ref.get("authors", []) if a.get("name"))
+                        backward_papers.append(
+                            Paper(
+                                title=ref["title"],
+                                authors=ref_auth,
+                                year=str(ref.get("year") or ""),
+                                doi=ref_doi,
+                                source="Semantic Scholar (Reference)",
+                            )
+                        )
+                for cit in data.get("citations", [])[:max_forward]:
+                    if cit and cit.get("title"):
+                        cit_doi = (cit.get("externalIds") or {}).get("DOI", "")
+                        cit_auth = ", ".join(a.get("name", "") for a in cit.get("authors", []) if a.get("name"))
+                        forward_papers.append(
+                            Paper(
+                                title=cit["title"],
+                                authors=cit_auth,
+                                year=str(cit.get("year") or ""),
+                                doi=cit_doi,
+                                source="Semantic Scholar (Citation)",
+                            )
+                        )
+        except Exception:
+            pass
+
+    return seed_paper, deduplicate_and_merge_papers(backward_papers), deduplicate_and_merge_papers(forward_papers)
+

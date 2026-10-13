@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 from crawly_core.models import AppConfig, Paper
 from crawly_core.sources import (
     deduplicate_and_merge_papers,
+    fetch_citation_snowball,
     get_browser_headers,
     get_polite_headers,
     normalize_doi,
@@ -417,3 +418,97 @@ class TestSources(unittest.TestCase):
 
             res_cit = search_multi_source("radar", sources=["openalex", "semantic_scholar"], sort_by="citations")
             self.assertEqual([p.citations for p in res_cit], [20, 5])
+
+        # Test fetch_citation_snowball
+        cfg = AppConfig()
+        self.assertEqual(fetch_citation_snowball(""), (None, [], []))
+
+        # 1. OpenAlex DOI success + references + citations
+        mock_oa_work = _mock_resp(
+            200,
+            {
+                "id": "https://openalex.org/W100",
+                "display_name": "Anchor Work",
+                "publication_year": 2021,
+                "authorships": [{"author": {"display_name": "Dr. Anchor"}}],
+                "doi": "https://doi.org/10.1000/anchor",
+                "referenced_works": ["https://openalex.org/W99"],
+            },
+        )
+        mock_oa_ref = _mock_resp(
+            200,
+            {
+                "results": [
+                    {
+                        "display_name": "Backward Ref Paper",
+                        "publication_year": 2019,
+                        "authorships": [{"author": {"display_name": "Old Author"}}],
+                    }
+                ]
+            },
+        )
+        mock_oa_cites = _mock_resp(
+            200,
+            {
+                "results": [
+                    {
+                        "display_name": "Forward Citing Paper",
+                        "publication_year": 2023,
+                        "authorships": [{"author": {"display_name": "New Author"}}],
+                    }
+                ]
+            },
+        )
+
+        snow_cbs = []
+        with patch("crawly_core.sources.requests.get", side_effect=[mock_oa_work, mock_oa_ref, mock_oa_cites]):
+            seed, back, fwd = fetch_citation_snowball(
+                "10.1000/anchor",
+                config=cfg,
+                progress_callback=lambda st, cnt: snow_cbs.append((st, cnt)),
+            )
+            self.assertIsNotNone(seed)
+            self.assertEqual(seed.clean_title(), "Anchor Work")
+            self.assertEqual(len(back), 1)
+            self.assertEqual(len(fwd), 1)
+            self.assertGreaterEqual(len(snow_cbs), 3)
+
+        # 2. OpenAlex search query seed (no DOI in query)
+        mock_oa_search = _mock_resp(
+            200,
+            {
+                "results": [
+                    {
+                        "id": "https://openalex.org/W200",
+                        "display_name": "Search Seed Work",
+                        "publication_year": 2022,
+                        "referenced_works": [],
+                    }
+                ]
+            },
+        )
+        with patch("crawly_core.sources.requests.get", side_effect=[mock_oa_search, _mock_resp(200, {"results": []})]):
+            seed2, back2, fwd2 = fetch_citation_snowball("synthetic aperture radar", config=cfg)
+            self.assertEqual(seed2.clean_title(), "Search Seed Work")
+
+        # 3. OpenAlex fails / empty -> Semantic Scholar graph API fallback
+        s2_data = {
+            "title": "S2 Anchor Paper",
+            "year": 2020,
+            "authors": [{"name": "A. S2"}],
+            "citationCount": 42,
+            "references": [{"title": "S2 Reference Work", "year": 2018, "authors": [{"name": "B. Ref"}]}],
+            "citations": [{"title": "S2 Citing Work", "year": 2022, "authors": [{"name": "C. Cite"}]}],
+        }
+        cfg_s2 = AppConfig(semantic_scholar_api_key="s2-key")
+        with patch("crawly_core.sources.requests.get", side_effect=[_mock_resp(500), _mock_resp(500), _mock_resp(200, s2_data)]):
+            seed3, back3, fwd3 = fetch_citation_snowball("10.1000/s2paper", config=cfg_s2)
+            self.assertEqual(seed3.clean_title(), "S2 Anchor Paper")
+            self.assertEqual(len(back3), 1)
+            self.assertEqual(len(fwd3), 1)
+
+        # 4. Exception / Network error branches
+        with patch("crawly_core.sources.requests.get", side_effect=RuntimeError("DNS Error")):
+            seed_err, back_err, fwd_err = fetch_citation_snowball("10.1000/error", config=cfg)
+            self.assertIsNone(seed_err)
+

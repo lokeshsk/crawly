@@ -186,3 +186,4 @@ jobs:
             exit 1
           fi
           echo "All tests passed and 100% code coverage verified!"
+
