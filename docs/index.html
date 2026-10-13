@@ -550,13 +550,17 @@ Main Menu:
             <select id="bWorkflow">
               <option value="pipeline">Full Pipeline (Search ➔ Download ➔ AI Review)</option>
               <option value="search">Search Open Databases Only</option>
+              <option value="snowball">Citation Snowballing (Forward &amp; Backward)</option>
               <option value="download">Download PDFs from CSV</option>
               <option value="ai">Run AI Literature Review on CSV</option>
+              <option value="report">Generate Interactive HTML Review Dashboard</option>
+              <option value="zotero">Sync Dataset &amp; Linked PDFs to Zotero</option>
+              <option value="watch">Literature Watchdog Alerts Digest</option>
               <option value="bibtex">Export CSV to BibTeX (.bib)</option>
             </select>
           </div>
           <div class="field">
-            <label for="bTopic">Keywords / CSV Dataset</label>
+            <label for="bTopic">Keywords / DOI / CSV Dataset</label>
             <input id="bTopic" type="text" value="synthetic aperture radar deep learning">
           </div>
           <div class="field">
@@ -566,6 +570,7 @@ Main Menu:
               <option value="1">Mode 1: Per-Paper Structured Summaries</option>
               <option value="2">Mode 2: Synthesized Literature Review Matrix</option>
               <option value="3">Mode 3: Interactive Q&amp;A Chat over PDFs</option>
+              <option value="gaps">Mode gaps: Research Gaps &amp; Roadmap</option>
             </select>
           </div>
           <div class="field">
@@ -673,12 +678,22 @@ Main Menu:
         cmd = `./dist/crawly pipeline "${topic}" -o ${slug} --limit 10 --mode ${mode === '3' ? 'all' : mode}`;
       } else if (wf === 'search') {
         cmd = `./dist/crawly search "${topic}" -o ${slug}.csv --limit 15`;
+      } else if (wf === 'snowball') {
+        cmd = `./dist/crawly snowball "${topic}" -l 10 -o snowball_${slug}.csv`;
       } else if (wf === 'download') {
         const csvName = topic.endsWith('.csv') ? topic : `${slug}.csv`;
         cmd = `./dist/crawly download ${csvName}`;
       } else if (wf === 'ai') {
         const csvName = topic.endsWith('.csv') ? topic : `${slug}.csv`;
         cmd = `./dist/crawly ai ${csvName} --mode ${mode} --provider ${prov}`;
+      } else if (wf === 'report') {
+        const csvName = topic.endsWith('.csv') ? topic : `${slug}.csv`;
+        cmd = `./dist/crawly report ${csvName}`;
+      } else if (wf === 'zotero') {
+        const csvName = topic.endsWith('.csv') ? topic : `${slug}.csv`;
+        cmd = `./dist/crawly zotero ${csvName} -c "${slug.toUpperCase()}"`;
+      } else if (wf === 'watch') {
+        cmd = `./dist/crawly watch "${topic}" -o watchdog_${slug}.md`;
       } else if (wf === 'bibtex') {
         const csvName = topic.endsWith('.csv') ? topic : `${slug}.csv`;
         cmd = `./dist/crawly export-bibtex ${csvName}`;
