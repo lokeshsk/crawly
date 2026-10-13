@@ -1,4 +1,4 @@
-name: CI — 100% Test & Coverage Quality Gate
+name: crawly-bot — PR Test & 100% Coverage Quality Gate
 
 on:
   push:
@@ -7,6 +7,7 @@ on:
       - master
       - dev
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches:
       - main
       - master
@@ -17,10 +18,11 @@ permissions:
   contents: read
   pull-requests: write
   issues: write
+  checks: write
 
 jobs:
   test-and-coverage-gate:
-    name: Automated Tests & 100% Code Coverage Gate
+    name: crawly-bot | Automated Tests & 100% Coverage Gate
     runs-on: ubuntu-latest
 
     steps:
@@ -53,13 +55,13 @@ jobs:
           echo "cov_exit_code=$?" >> "$GITHUB_OUTPUT"
           cat coverage_report.txt
 
-      - name: Publish Quality Gate Summary
+      - name: Publish Quality Gate Job Summary
         if: always()
         run: |
-          echo "## 🕷️ crawly: the literature assistant — PR Quality Gate" >> "$GITHUB_STEP_SUMMARY"
+          echo "## 🤖 crawly-bot — Pull Request Quality Gate" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           if [ "${{ steps.run_tests.outputs.test_exit_code }}" == "0" ] && [ "${{ steps.check_coverage.outputs.cov_exit_code }}" == "0" ]; then
-            echo "✅ **PASSED:** All unit tests succeeded and **100% code coverage** was verified. This PR is ready for maintainer review!" >> "$GITHUB_STEP_SUMMARY"
+            echo "✅ **PASSED:** All unit tests succeeded and **100% code coverage** was verified. Ready for maintainer review!" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "❌ **BLOCKED:** Either one or more unit tests failed or total code coverage dropped below **100%**." >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
@@ -71,45 +73,106 @@ jobs:
           cat coverage_report.txt >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Comment on Pull Request if Tests or 100% Coverage Fail
-        if: github.event_name == 'pull_request' && (steps.run_tests.outputs.test_exit_code != '0' || steps.check_coverage.outputs.cov_exit_code != '0')
+      - name: crawly-bot — Post/Update PR Status Comment & Automated Review
+        if: always() && github.event_name == 'pull_request'
+        continue-on-error: true
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
+            const marker = '<!-- crawly-pr-quality-gate-bot -->';
             const testExit = '${{ steps.run_tests.outputs.test_exit_code }}';
             const covExit = '${{ steps.check_coverage.outputs.cov_exit_code }}';
+            const passed = (testExit === '0' && covExit === '0');
+            const author = context.payload.pull_request.user.login;
+            const sha = context.payload.pull_request.head.sha.slice(0, 7);
             const covReport = fs.existsSync('coverage_report.txt') ? fs.readFileSync('coverage_report.txt', 'utf8') : 'Coverage report unavailable.';
             const testOutput = fs.existsSync('test_output.txt') ? fs.readFileSync('test_output.txt', 'utf8').slice(-3500) : '';
 
-            const body = [
-              `### ❌ Pull Request Quality Gate Failed — Action Required (@${context.payload.pull_request.user.login})`,
-              ``,
-              `Thank you for contributing to **crawly: the literature assistant** (\`crawly\`)!`,
-              `Before your Pull Request can be forwarded to the maintainer for review and merging, **all unit tests must pass** and **total code coverage must be 100%**.`,
-              ``,
-              `- **Unit Tests Status:** ${testExit === '0' ? '✅ Passed' : '❌ Failed (please fix failing tests)'}`,
-              `- **100% Code Coverage Status:** ${covExit === '0' ? '✅ 100% Verified' : '❌ Below 100% (please add tests for uncovered lines)'}`,
-              ``,
-              `#### 📊 Code Coverage Report`,
-              '```text',
-              covReport.trim(),
-              '```',
-              testExit !== '0' ? `#### 🧪 Test Output (Tail)\n\`\`\`text\n${testOutput.trim()}\n\`\`\`` : '',
-              `#### 🛠️ How to Reproduce & Fix Locally`,
-              '```bash',
-              `python -m coverage run -m unittest discover -s tests -v`,
-              `python -m coverage report -m --fail-under=100`,
-              '```',
-              `Once both commands pass with **0 errors** and **100% coverage**, push your new commits to this branch and the quality gate will automatically re-verify your PR.`
-            ].filter(Boolean).join('\n');
+            let bodyLines = [marker];
+            if (passed) {
+              bodyLines.push(
+                `### 🤖 crawly-bot: ✅ Quality Gate Passed (100% Tests & 100% Coverage)`,
+                ``,
+                `Great work @${author}! Commit \`${sha}\` passed all automated checks for **crawly: the literature assistant**:`,
+                `- **Unit Test Suite:** ✅ All tests passed`,
+                `- **Code Coverage Gate:** ✅ **100% coverage verified** (\`--fail-under=100\`)`,
+                ``,
+                `cc @lokeshsk — This Pull Request meets all quality gate requirements and is ready for maintainer review & merging.`,
+                ``,
+                `#### 📊 Verified Coverage Report`,
+                '```text',
+                covReport.trim(),
+                '```'
+              );
+            } else {
+              bodyLines.push(
+                `### 🤖 crawly-bot: ❌ Pull Request Blocked — Action Required (@${author})`,
+                ``,
+                `Thank you for contributing to **crawly: the literature assistant** (\`crawly\`)!`,
+                `Before this Pull Request is forwarded to the maintainer (@lokeshsk) for review and merging, **all unit tests must pass** and **total code coverage must be 100%**.`,
+                ``,
+                `- **Unit Tests Status (commit \`${sha}\`):** ${testExit === '0' ? '✅ Passed' : '❌ Failed — please fix failing tests'}`,
+                `- **100% Code Coverage Status:** ${covExit === '0' ? '✅ 100% Verified' : '❌ Below 100% — please add tests for uncovered lines shown in the Missing column below'}`,
+                ``,
+                `#### 📊 Code Coverage Report`,
+                '```text',
+                covReport.trim(),
+                '```',
+                testExit !== '0' ? `#### 🧪 Failing Test Output\n\`\`\`text\n${testOutput.trim()}\n\`\`\`` : '',
+                `#### 🛠️ How to Reproduce & Fix Locally`,
+                '```bash',
+                `python -m coverage run -m unittest discover -s tests -v`,
+                `python -m coverage report -m --fail-under=100`,
+                '```',
+                `Once both commands pass locally with **0 errors** and **100% coverage**, push your fix to this branch and **crawly-bot** will automatically re-check your PR.`
+              );
+            }
 
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: body
-            });
+            const body = bodyLines.filter(Boolean).join('\n');
+
+            // Update existing sticky comment if present, otherwise create a new comment
+            try {
+              const { data: comments } = await github.rest.issues.listComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                per_page: 100
+              });
+              const existing = comments.find(c => c.body && c.body.includes(marker));
+              if (existing) {
+                await github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: existing.id,
+                  body: body
+                });
+              } else {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  body: body
+                });
+              }
+            } catch (err) {
+              console.log('Note: Could not post sticky comment (likely fork PR with read-only token):', err.message);
+            }
+
+            // Submit formal PR review (APPROVE or REQUEST_CHANGES)
+            try {
+              await github.rest.pulls.createReview({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.issue.number,
+                event: passed ? 'APPROVE' : 'REQUEST_CHANGES',
+                body: passed
+                  ? `✅ crawly-bot verified 100% test pass rate and 100% code coverage on commit \`${sha}\`.`
+                  : `❌ crawly-bot blocked merge on commit \`${sha}\`: please fix failing unit tests and/or restore 100% code coverage before maintainer review.`
+              });
+            } catch (err) {
+              console.log('Note: Could not create formal PR review:', err.message);
+            }
 
       - name: Enforce Gate Exit Code
         if: always()
@@ -123,4 +186,3 @@ jobs:
             exit 1
           fi
           echo "All tests passed and 100% code coverage verified!"
-
