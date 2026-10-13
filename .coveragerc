@@ -1,0 +1,19 @@
+[run]
+source =
+    crawly_core
+    crawly
+    downloader
+omit =
+    tests/*
+    build_release.py
+
+[report]
+fail_under = 100
+show_missing = True
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+    except Exception:
+    pass
+

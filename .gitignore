@@ -1,0 +1,27 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# PyInstaller build artifacts (keep dist/ tracked for standalone users)
+build/
+*.spec
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env
+
+# IDE & OS metadata
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local user datasets / downloaded paper folders (unless explicitly added)
+papers_not_found.csv
+*_summaries.csv
+*_paper_summaries.md
+*_literature_review.md
+

@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+# Crawly Self-Contained Launcher for Linux / WSL / macOS (No pip install required)
+DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+exec python3 "$DIR/crawly.pyz" "$@"

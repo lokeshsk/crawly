@@ -1,0 +1,126 @@
+name: CI — 100% Test & Coverage Quality Gate
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - dev
+  pull_request:
+    branches:
+      - main
+      - master
+      - dev
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  test-and-coverage-gate:
+    name: Automated Tests & 100% Code Coverage Gate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install runtime & test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt coverage pytest pytest-cov
+
+      - name: Run Unit Test Suite with Coverage Tracking
+        id: run_tests
+        continue-on-error: true
+        run: |
+          python -m coverage run -m unittest discover -s tests -v > test_output.txt 2>&1
+          echo "test_exit_code=$?" >> "$GITHUB_OUTPUT"
+          cat test_output.txt
+
+      - name: Verify 100% Code Coverage Threshold
+        id: check_coverage
+        continue-on-error: true
+        run: |
+          python -m coverage report -m --fail-under=100 > coverage_report.txt 2>&1
+          echo "cov_exit_code=$?" >> "$GITHUB_OUTPUT"
+          cat coverage_report.txt
+
+      - name: Publish Quality Gate Summary
+        if: always()
+        run: |
+          echo "## 🕷️ crawly: the literature assistant — PR Quality Gate" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.run_tests.outputs.test_exit_code }}" == "0" ] && [ "${{ steps.check_coverage.outputs.cov_exit_code }}" == "0" ]; then
+            echo "✅ **PASSED:** All unit tests succeeded and **100% code coverage** was verified. This PR is ready for maintainer review!" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "❌ **BLOCKED:** Either one or more unit tests failed or total code coverage dropped below **100%**." >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "> **Action Required by Contributor:** Please fix all failing test cases and add unit tests in \`tests/\` until coverage reaches **100%** before requesting maintainer review or merging." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Coverage Report" >> "$GITHUB_STEP_SUMMARY"
+          echo '```text' >> "$GITHUB_STEP_SUMMARY"
+          cat coverage_report.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Comment on Pull Request if Tests or 100% Coverage Fail
+        if: github.event_name == 'pull_request' && (steps.run_tests.outputs.test_exit_code != '0' || steps.check_coverage.outputs.cov_exit_code != '0')
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const testExit = '${{ steps.run_tests.outputs.test_exit_code }}';
+            const covExit = '${{ steps.check_coverage.outputs.cov_exit_code }}';
+            const covReport = fs.existsSync('coverage_report.txt') ? fs.readFileSync('coverage_report.txt', 'utf8') : 'Coverage report unavailable.';
+            const testOutput = fs.existsSync('test_output.txt') ? fs.readFileSync('test_output.txt', 'utf8').slice(-3500) : '';
+
+            const body = [
+              `### ❌ Pull Request Quality Gate Failed — Action Required (@${context.payload.pull_request.user.login})`,
+              ``,
+              `Thank you for contributing to **crawly: the literature assistant** (\`crawly\`)!`,
+              `Before your Pull Request can be forwarded to the maintainer for review and merging, **all unit tests must pass** and **total code coverage must be 100%**.`,
+              ``,
+              `- **Unit Tests Status:** ${testExit === '0' ? '✅ Passed' : '❌ Failed (please fix failing tests)'}`,
+              `- **100% Code Coverage Status:** ${covExit === '0' ? '✅ 100% Verified' : '❌ Below 100% (please add tests for uncovered lines)'}`,
+              ``,
+              `#### 📊 Code Coverage Report`,
+              '```text',
+              covReport.trim(),
+              '```',
+              testExit !== '0' ? `#### 🧪 Test Output (Tail)\n\`\`\`text\n${testOutput.trim()}\n\`\`\`` : '',
+              `#### 🛠️ How to Reproduce & Fix Locally`,
+              '```bash',
+              `python -m coverage run -m unittest discover -s tests -v`,
+              `python -m coverage report -m --fail-under=100`,
+              '```',
+              `Once both commands pass with **0 errors** and **100% coverage**, push your new commits to this branch and the quality gate will automatically re-verify your PR.`
+            ].filter(Boolean).join('\n');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body
+            });
+
+      - name: Enforce Gate Exit Code
+        if: always()
+        run: |
+          if [ "${{ steps.run_tests.outputs.test_exit_code }}" != "0" ]; then
+            echo "::error::Unit tests failed! Please fix all failing test cases before submitting for merge."
+            exit 1
+          fi
+          if [ "${{ steps.check_coverage.outputs.cov_exit_code }}" != "0" ]; then
+            echo "::error::Code coverage is below 100%! Please add unit tests for all uncovered lines before submitting for merge."
+            exit 1
+          fi
+          echo "All tests passed and 100% code coverage verified!"
+
