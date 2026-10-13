@@ -1,42 +1,157 @@
-name: Build & Publish GitHub Release (Windows & Linux Executables)
+name: crawly-bot — Auto-Versioning, Build & GitHub Release
 
 on:
   push:
+    branches:
+      - main
     tags:
       - "v*"
   workflow_dispatch:
     inputs:
-      tag_name:
-        description: "Release tag to publish (e.g. v2.0.0)"
+      bump_type:
+        description: "Version bump type (auto, patch, minor, major)"
         required: false
-        default: "v2.0.0"
+        default: "auto"
+        type: choice
+        options:
+          - auto
+          - patch
+          - minor
+          - major
 
 permissions:
   contents: write
 
 jobs:
-  verify-quality-gate:
-    name: Verify 100% Tests & Coverage Before Release
+  auto-version-and-gate:
+    name: crawly-bot | 100% Quality Gate & Semantic Versioning
     runs-on: ubuntu-latest
+    # Skip if commit message explicitly has [skip ci] or [skip release] or was made by crawly-bot
+    if: "!contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[skip release]')"
+    outputs:
+      release_tag: ${{ steps.semver.outputs.release_tag }}
+      release_version: ${{ steps.semver.outputs.release_version }}
+      should_release: ${{ steps.semver.outputs.should_release }}
+
     steps:
-      - name: Checkout repository
+      - name: Checkout repository with full history and tags
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Install dependencies & verify 100% coverage
+      - name: Verify 100% Unit Tests & 100% Code Coverage Gate
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt coverage pytest pytest-cov
           python -m coverage run -m unittest discover -s tests -v
           python -m coverage report -m --fail-under=100
 
+      - name: Compute Next Semantic Version & Tag Release
+        id: semver
+        env:
+          INPUT_BUMP: ${{ github.event.inputs.bump_type || 'auto' }}
+          COMMIT_MSG: ${{ github.event.head_commit.message || '' }}
+        run: |
+          git config user.name "crawly-bot"
+          git config user.email "crawly.theliteratureassistant@gmail.com"
+          git fetch --tags --force
+
+          # If triggered directly by pushing a tag (v*), use that exact tag
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            TAG_NAME="${GITHUB_REF#refs/tags/}"
+            VERSION="${TAG_NAME#v}"
+            echo "release_tag=${TAG_NAME}" >> "$GITHUB_OUTPUT"
+            echo "release_version=${VERSION}" >> "$GITHUB_OUTPUT"
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Check if current HEAD already has a v* tag pointing to it (and not manual workflow_dispatch)
+          HEAD_TAG=$(git tag --points-at HEAD | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1 || true)
+          if [[ -n "${HEAD_TAG}" && "${GITHUB_EVENT_NAME}" != "workflow_dispatch" ]]; then
+            VERSION="${HEAD_TAG#v}"
+            echo "HEAD is already tagged at ${HEAD_TAG}; publishing release for ${HEAD_TAG}."
+            echo "release_tag=${HEAD_TAG}" >> "$GITHUB_OUTPUT"
+            echo "release_version=${VERSION}" >> "$GITHUB_OUTPUT"
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Find latest vX.Y.Z tag (default v2.0.0 if none)
+          LATEST_TAG=$(git tag -l "v[0-9]*.[0-9]*.[0-9]*" | sort -V | tail -n 1)
+          if [[ -z "${LATEST_TAG}" ]]; then
+            LATEST_TAG="v2.0.0"
+          fi
+          BASE_VER="${LATEST_TAG#v}"
+          IFS='.' read -r MAJOR MINOR PATCH <<< "${BASE_VER}"
+
+          # Determine bump type (major / minor / patch)
+          BUMP="${INPUT_BUMP}"
+          if [[ "${BUMP}" == "auto" ]]; then
+            if echo "${COMMIT_MSG}" | grep -qiE "(\[major\]|BREAKING CHANGE|^[a-z]+(\([^)]+\))?!:)"; then
+              BUMP="major"
+            elif echo "${COMMIT_MSG}" | grep -qiE "(\[minor\]|\[feature\]|^feat(\([^)]+\))?:)"; then
+              BUMP="minor"
+            else
+              BUMP="patch"
+            fi
+          fi
+
+          if [[ "${BUMP}" == "major" ]]; then
+            MAJOR=$((MAJOR + 1))
+            MINOR=0
+            PATCH=0
+          elif [[ "${BUMP}" == "minor" ]]; then
+            MINOR=$((MINOR + 1))
+            PATCH=0
+          else
+            PATCH=$((PATCH + 1))
+          fi
+
+          NEW_VER="${MAJOR}.${MINOR}.${PATCH}"
+          NEW_TAG="v${NEW_VER}"
+          echo "Auto-bumping version: ${LATEST_TAG} -> ${NEW_TAG} (${BUMP})"
+
+          # Update version in crawly_core/__init__.py and CITATION.cff
+          python - <<EOF
+          from pathlib import Path
+          import re
+
+          init_p = Path("crawly_core/__init__.py")
+          init_txt = init_p.read_text(encoding="utf-8")
+          init_txt = re.sub(r'__version__\s*=\s*"[^"]+"', '__version__ = "${NEW_VER}"', init_txt)
+          init_p.write_text(init_txt, encoding="utf-8")
+
+          cff_p = Path("CITATION.cff")
+          if cff_p.exists():
+              cff_txt = cff_p.read_text(encoding="utf-8")
+              cff_txt = re.sub(r'^version:\s*.*$', 'version: ${NEW_VER}', cff_txt, flags=re.MULTILINE)
+              cff_p.write_text(cff_txt, encoding="utf-8")
+          EOF
+
+          git add crawly_core/__init__.py CITATION.cff
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(release): bump version to ${NEW_TAG} [skip ci]"
+            git push origin HEAD:main
+          fi
+
+          git tag -f -a "${NEW_TAG}" -m "Release ${NEW_TAG}: crawly: the literature assistant"
+          git push origin "${NEW_TAG}" --force
+
+          echo "release_tag=${NEW_TAG}" >> "$GITHUB_OUTPUT"
+          echo "release_version=${NEW_VER}" >> "$GITHUB_OUTPUT"
+          echo "should_release=true" >> "$GITHUB_OUTPUT"
+
   build-binaries:
     name: Build Standalone Executables (${{ matrix.os }})
-    needs: verify-quality-gate
+    needs: auto-version-and-gate
+    if: needs.auto-version-and-gate.outputs.should_release == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -49,8 +164,10 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - name: Checkout repository
+      - name: Checkout release tag ${{ needs.auto-version-and-gate.outputs.release_tag }}
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.auto-version-and-gate.outputs.release_tag }}
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -73,8 +190,9 @@ jobs:
           path: dist/*
 
   publish-release:
-    name: Publish Official GitHub Release
-    needs: build-binaries
+    name: Publish Official GitHub Release (${{ needs.auto-version-and-gate.outputs.release_tag }})
+    needs: [auto-version-and-gate, build-binaries]
+    if: needs.auto-version-and-gate.outputs.should_release == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -100,14 +218,14 @@ jobs:
           chmod +x release_assets/crawly release_assets/crawly-linux-x86_64 release_assets/crawly.pyz || true
           ls -lh release_assets/
 
-      - name: Create / Update GitHub Release
+      - name: Create / Update Official GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || inputs.tag_name || 'v2.0.0' }}
-          name: "crawly: the literature assistant (${{ github.ref_type == 'tag' && github.ref_name || inputs.tag_name || 'v2.0.0' }})"
+          tag_name: ${{ needs.auto-version-and-gate.outputs.release_tag }}
+          name: "crawly: the literature assistant (${{ needs.auto-version-and-gate.outputs.release_tag }})"
           generate_release_notes: true
           body: |
-            ## 🕷️ crawly: the literature assistant — Standalone Release
+            ## 🕷️ crawly: the literature assistant — Release ${{ needs.auto-version-and-gate.outputs.release_tag }}
 
             **crawly** (`crawly: the literature assistant`) is an end-to-end academic research assistant for discovering scientific papers across 8+ official Open Access databases (**OpenAlex, Unpaywall, Semantic Scholar, arXiv, Europe PMC, Crossref, DOAJ, HAL, OpenAIRE**), downloading full-text PDFs within a **strict Legal Open-Access framework by default**, exporting BibTeX citations, and generating AI-powered literature reviews using local self-hosted LLMs (**Ollama, LM Studio, vLLM**) or cloud APIs (**OpenAI, Gemini, Anthropic, OpenRouter, Groq, DeepSeek**).
 
