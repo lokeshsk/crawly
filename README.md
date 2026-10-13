@@ -222,7 +222,7 @@ All commands display modern multi-column progress bars (spinner, progress bar, p
 
 ---
 
-## 4. For Contributors & Developers (100% Test & Coverage Quality Gate)
+## 4. For Contributors & Developers
 
 Every Pull Request submitted to **crawly: the literature assistant** is verified by the automated GitHub Actions quality gate ([`.github/workflows/ci-tests-coverage.yml`](.github/workflows/ci-tests-coverage.yml)).
 
