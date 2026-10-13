@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Literature Review Dashboard — Deep_Learning_Foundations</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --border: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent: #0284c7;
+      --accent-hover: #0369a1;
+      --badge-bg: rgba(2, 132, 199, 0.15);
+      --badge-border: #0284c7;
+      --green: #22c55e;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      line-height: 1.5;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+    }
+    header {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1.5rem;
+      margin-bottom: 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    h1 {
+      margin: 0 0 0.5rem 0;
+      font-size: 1.85rem;
+      color: #38bdf8;
+    }
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      margin: 0;
+    }
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      padding: 1rem 1.25rem;
+    }
+    .stat-label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .stat-val {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-top: 0.25rem;
+    }
+    .controls {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+    .search-input {
+      flex: 1;
+      min-width: 260px;
+      padding: 0.65rem 1rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      color: var(--text);
+      font-size: 0.95rem;
+    }
+    .filter-select {
+      padding: 0.65rem 1rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      color: var(--text);
+      font-size: 0.95rem;
+    }
+    .tabs {
+      display: flex;
+      gap: 0.5rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 1.5rem;
+    }
+    .tab-btn {
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--text-muted);
+      padding: 0.65rem 1rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .tab-btn.active {
+      color: #38bdf8;
+      border-bottom-color: #38bdf8;
+    }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    .paper-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      padding: 1.25rem;
+      margin-bottom: 1rem;
+      transition: transform 0.1s ease;
+    }
+    .paper-card:hover {
+      border-color: #38bdf8;
+    }
+    .card-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin: 0 0 0.35rem 0;
+      color: #f1f5f9;
+    }
+    .card-meta {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-bottom: 0.75rem;
+    }
+    .badge {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.2rem 0.5rem;
+      border-radius: 9999px;
+      background: var(--badge-bg);
+      border: 1px solid var(--badge-border);
+      color: #38bdf8;
+      margin-right: 0.5rem;
+    }
+    .badge-green {
+      background: rgba(34, 197, 94, 0.15);
+      border-color: var(--green);
+      color: var(--green);
+    }
+    .summary-box {
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 0.5rem;
+      padding: 0.85rem 1rem;
+      margin-top: 0.75rem;
+      font-size: 0.9rem;
+      white-space: pre-wrap;
+    }
+    .actions-row {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.85rem;
+      flex-wrap: wrap;
+    }
+    .btn {
+      background: var(--border);
+      color: var(--text);
+      border: 1px solid transparent;
+      padding: 0.35rem 0.75rem;
+      border-radius: 0.4rem;
+      font-size: 0.8rem;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    .btn:hover { background: #475569; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    pre.markdown-view {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      padding: 1.5rem;
+      font-family: var(--mono);
+      font-size: 0.88rem;
+      white-space: pre-wrap;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>Literature Review Dashboard</h1>
+        <p class="subtitle">Dataset: <strong>Deep_Learning_Foundations</strong> · Generated by <strong>crawly: the literature assistant</strong></p>
+      </div>
+      <div>
+        <span class="badge">AI Engine: lmstudio (local-model)</span>
+      </div>
+    </header>
+
+    <div class="stats-bar">
+      <div class="stat-card">
+        <div class="stat-label">Total Papers</div>
+        <div class="stat-val" id="statTotal">4</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Open Access PDFs</div>
+        <div class="stat-val">4</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Citations</div>
+        <div class="stat-val">477,000</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Year Range</div>
+        <div class="stat-val">2016–2020</div>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('catalog')">Paper Catalog &amp; Summaries</button>
+      <button class="tab-btn" onclick="switchTab('synthesis')">Literature Synthesis Matrix</button>
+      <button class="tab-btn" onclick="switchTab('gaps')">Research Gaps &amp; Roadmap</button>
+    </div>
+
+    <div id="catalog" class="tab-panel active">
+      <div class="controls">
+        <input type="text" id="searchInput" class="search-input" placeholder="Search by title, author, venue, or keyword..." oninput="filterCards()">
+        <select id="filterOA" class="filter-select" onchange="filterCards()">
+          <option value="all">All Papers</option>
+          <option value="oa">With PDF Only</option>
+        </select>
+        <select id="sortSelect" class="filter-select" onchange="filterCards()">
+          <option value="relevance">Default Order</option>
+          <option value="citations">Most Cited First</option>
+          <option value="newest">Newest First</option>
+          <option value="oldest">Oldest First</option>
+        </select>
+      </div>
+
+      <div id="paperList"></div>
+    </div>
+
+    <div id="synthesis" class="tab-panel">
+      <pre class="markdown-view">## Literature Review Synthesis: Deep Learning & Foundation Architectures
+
+### 1. Conceptual Progression & Paradigms
+The literature demonstrates a fundamental transition from recurrent and convolutional architectures (He et al., 2016) toward universal attention-based Transformer backbones (Vaswani et al., 2017). Initially, deep residual networks established that identity mappings resolve optimization degradation in high-capacity models. Subsequently, Vaswani et al. removed temporal recurrence entirely in favor of multi-head dot-product attention.
+
+### 2. Pre-training and Scale Dynamics
+Devlin et al. (2019) demonstrated that bidirectional context modeling via masked objectives (BERT) vastly outperforms left-to-right baselines on classification and extraction tasks. Brown et al. (2020) further expanded scale frontiers to 175B parameters, establishing that in-context learning emerges naturally without gradient fine-tuning.
+
+| Paper | Year | Primary Mechanism | Primary Benchmark | Main Limitation |
+| :--- | :--- | :--- | :--- | :--- |
+| **Vaswani et al.** | 2017 | Self-Attention Mechanism | WMT 2014 En-De | O(N^2) memory complexity |
+| **Devlin et al.** | 2019 | Bidirectional Masked LM | GLUE / SQuAD | [MASK] token pre-training mismatch |
+| **He et al.** | 2016 | Residual Identity Shortcuts | ImageNet ILSVRC | Diminishing depth returns |
+| **Brown et al.** | 2020 | Autoregressive In-Context Prompting | SuperGLUE / LAMBADA | Severe hallucination & high inference compute |
+</pre>
+    </div>
+
+    <div id="gaps" class="tab-panel">
+      <pre class="markdown-view">## Automated Research Gaps & Open Challenges Roadmap
+
+### Gap 1: Quadratic Complexity vs. Infinite Context Windows
+- **Bottleneck Identified:** The foundational self-attention formulation (Vaswani et al., 2017) scales quadratically O(N^2) with context length.
+- **Current Solutions:** Linear attention approximations, FlashAttention tiled kernel optimizations, and state-space models (Mamba/S4).
+- **Open Challenge:** Preserving needle-in-a-haystack associative recall across context lengths exceeding 10M tokens without degradation.
+
+### Gap 2: Factual Hallucinations & Verifiable Attribution
+- **Bottleneck Identified:** Autoregressive scaling (Brown et al., 2020) generates convincing syntactic text without strict semantic veracity guarantees.
+- **Open Challenge:** Developing citation-grounded RAG architectures with deterministic citation provenance and automated contradiction detection.
+
+### Gap 3: Parameter-Efficient Fine-Tuning (PEFT) Under Extreme Scale
+- **Bottleneck Identified:** Full parameter fine-tuning of 100B+ models is economically intractable for localized research domains.
+- **Open Challenge:** Adapting localized low-rank adapters (LoRA/QLoRA) with zero catastrophic forgetting of pre-trained world knowledge.
+</pre>
+    </div>
+  </div>
+
+  <script>
+    const papers = [{"id": 1, "title": "Attention Is All You Need", "authors": "Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N. Gomez, \u0141ukasz Kaiser, Illia Polosukhin", "year": "2017", "publication": "Advances in Neural Information Processing Systems (NeurIPS)", "citations": 124000, "doi": "10.48550/arXiv.1706.03762", "url": "https://arxiv.org/abs/1706.03762", "has_pdf": true, "pdf_file": "", "summary": "- **Objective:** Replace recurrent and convolutional sequence architectures with pure self-attention mechanisms.\n- **Methodology:** Multi-head scaled dot-product self-attention with sinusoidal positional encodings and feed-forward layers.\n- **Key Findings:** State-of-the-art BLEU score of 28.4 on WMT 2014 English-to-German with dramatically reduced training compute.\n- **Limitations:** O(N^2) memory complexity with sequence length N; lacks explicit recurrence inductive biases.", "bibtex": "@article{vaswani2017attention,\n  title = {Attention Is All You Need},\n  author = {Ashish Vaswani and Noam Shazeer and Niki Parmar and Jakob Uszkoreit and Llion Jones and Aidan N. Gomez and \u0141ukasz Kaiser and Illia Polosukhin},\n  year = {2017},\n  journal = {Advances in Neural Information Processing Systems (NeurIPS)},\n  doi = {10.48550/arXiv.1706.03762},\n  url = {https://arxiv.org/abs/1706.03762},\n  abstract = {The dominant sequence transduction models are based on complex recurrent or convolutional neural networks that include an encoder and a decoder. The best performing models also connect the encoder and decoder through an attention mechanism. We propose a new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely.},\n}"}, {"id": 2, "title": "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding", "authors": "Jacob Devlin, Ming-Wei Chang, Kenton Lee, Kristina Toutanova", "year": "2019", "publication": "NAACL-HLT", "citations": 110000, "doi": "10.48550/arXiv.1810.04805", "url": "https://arxiv.org/abs/1810.04805", "has_pdf": true, "pdf_file": "", "summary": "- **Objective:** Introduce deep bidirectional pre-training for universal language representations.\n- **Methodology:** Masked Language Modeling (MLM) and Next Sentence Prediction (NSP) fine-tuned on downstream GLUE benchmarks.\n- **Key Findings:** Set new state-of-the-art on 11 natural language processing tasks including GLUE (80.5%) and SQuAD.\n- **Limitations:** Pre-train/fine-tune mismatch due to artificial [MASK] tokens; computationally intensive pre-training.", "bibtex": "@article{devlin2019bert,\n  title = {BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding},\n  author = {Jacob Devlin and Ming-Wei Chang and Kenton Lee and Kristina Toutanova},\n  year = {2019},\n  journal = {NAACL-HLT},\n  doi = {10.48550/arXiv.1810.04805},\n  url = {https://arxiv.org/abs/1810.04805},\n  abstract = {We introduce a new language representation model called BERT, which stands for Bidirectional Encoder Representations from Transformers. Unlike recent language representation models, BERT is designed to pre-train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers.},\n}"}, {"id": 3, "title": "Deep Residual Learning for Image Recognition", "authors": "Kaiming He, Xiangyu Zhang, Shaoqing Ren, Jian Sun", "year": "2016", "publication": "IEEE Conference on Computer Vision and Pattern Recognition (CVPR)", "citations": 195000, "doi": "10.1109/CVPR.2016.90", "url": "https://arxiv.org/abs/1512.03385", "has_pdf": true, "pdf_file": "", "summary": "- **Objective:** Mitigate vanishing/exploding gradients and degradation problem when training ultra-deep neural networks.\n- **Methodology:** Identity shortcut connections reformulating layer mappings as residual functions H(x) = F(x) + x.\n- **Key Findings:** Successfully trained 152-layer networks, winning 1st place in ILSVRC 2015 classification with 3.57% top-5 error.\n- **Limitations:** Linear increase in layer count yields diminishing returns without architectural width scaling.", "bibtex": "@article{he2016deep,\n  title = {Deep Residual Learning for Image Recognition},\n  author = {Kaiming He and Xiangyu Zhang and Shaoqing Ren and Jian Sun},\n  year = {2016},\n  journal = {IEEE Conference on Computer Vision and Pattern Recognition (CVPR)},\n  doi = {10.1109/CVPR.2016.90},\n  url = {https://arxiv.org/abs/1512.03385},\n  abstract = {Deeper neural networks are more difficult to train. We present a residual learning framework to ease the training of networks that are substantially deeper than those used previously. We explicitly reformulate the layers as learning residual functions with reference to the layer inputs, instead of learning unreferenced functions.},\n}"}, {"id": 4, "title": "Language Models are Few-Shot Learners", "authors": "Tom B. Brown, Benjamin Mann, Nick Ryder, Melanie Subbiah, Jared Kaplan, Prafulla Dhariwal, Arvind Neelakantan, Pranav Shyam, Girish Sastry, Amanda Askell", "year": "2020", "publication": "Advances in Neural Information Processing Systems (NeurIPS)", "citations": 48000, "doi": "10.48550/arXiv.2005.14165", "url": "https://arxiv.org/abs/2005.14165", "has_pdf": true, "pdf_file": "", "summary": "- **Objective:** Demonstrate that scaling autoregressive language models allows in-context few-shot learning without parameter updates.\n- **Methodology:** 175-billion parameter autoregressive Transformer (GPT-3) evaluated across translation, QA, and cloze tasks using prompt demonstrations.\n- **Key Findings:** Few-shot prompting rivals or surpasses fine-tuned models on SuperGLUE and trivia benchmarks.\n- **Limitations:** High inference cost; susceptibility to prompt sensitivity, hallucinations, and unverified factual drift.", "bibtex": "@article{brown2020language,\n  title = {Language Models are Few-Shot Learners},\n  author = {Tom B. Brown and Benjamin Mann and Nick Ryder and Melanie Subbiah and Jared Kaplan and Prafulla Dhariwal and Arvind Neelakantan and Pranav Shyam and Girish Sastry and Amanda Askell},\n  year = {2020},\n  journal = {Advances in Neural Information Processing Systems (NeurIPS)},\n  doi = {10.48550/arXiv.2005.14165},\n  url = {https://arxiv.org/abs/2005.14165},\n  abstract = {Recent work has demonstrated substantial gains on many NLP tasks and benchmarks by pre-training on a large corpus of text followed by fine-tuning on a specific task. While typically task-agnostic in architecture, this method still requires task-specific fine-tuning datasets of thousands or tens of thousands of examples. Here we show that scaling up language models greatly improves task-agnostic, few-shot performance.},\n}"}];
+
+    function renderCards(list) {
+      const container = document.getElementById('paperList');
+      if (!list.length) {
+        container.innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:2rem;">No matching papers found.</p>';
+        return;
+      }
+      container.innerHTML = list.map(p => `
+        <div class="paper-card">
+          <div class="card-title">#${p.id}. ${p.title}</div>
+          <div class="card-meta">
+            <strong>${p.authors}</strong> · ${p.year || 'Unknown'} · <em>${p.publication}</em>
+          </div>
+          <div>
+            ${p.has_pdf ? '<span class="badge badge-green">✓ Open Access PDF</span>' : '<span class="badge">Metadata Only</span>'}
+            <span class="badge">Citations: ${p.citations}</span>
+            ${p.doi ? `<span class="badge">DOI: ${p.doi}</span>` : ''}
+          </div>
+          ${p.summary ? `<div class="summary-box"><strong>AI Structured Summary:</strong>\n${p.summary}</div>` : ''}
+          <div class="actions-row">
+            ${p.pdf_file ? `<a class="btn btn-primary" href="${p.pdf_file}" target="_blank">📄 Open Local PDF</a>` : (p.url ? `<a class="btn btn-primary" href="${p.url}" target="_blank">🔗 Publisher Link</a>` : '')}
+            ${p.doi ? `<a class="btn" href="https://doi.org/${p.doi}" target="_blank">🌐 View DOI</a>` : ''}
+            <button class="btn" onclick="copyBib(${p.id})">📋 Copy BibTeX</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function filterCards() {
+      const q = document.getElementById('searchInput').value.toLowerCase().trim();
+      const oaOnly = document.getElementById('filterOA').value === 'oa';
+      const sort = document.getElementById('sortSelect').value;
+
+      let filtered = papers.filter(p => {
+        if (oaOnly && !p.has_pdf) return false;
+        if (!q) return true;
+        const hay = (p.title + ' ' + p.authors + ' ' + p.publication + ' ' + p.summary + ' ' + p.doi).toLowerCase();
+        return hay.includes(q);
+      });
+
+      if (sort === 'citations') {
+        filtered.sort((a, b) => b.citations - a.citations);
+      } else if (sort === 'newest') {
+        filtered.sort((a, b) => (Number(b.year) || 0) - (Number(a.year) || 0));
+      } else if (sort === 'oldest') {
+        filtered.sort((a, b) => (Number(a.year) || 9999) - (Number(b.year) || 9999));
+      }
+
+      renderCards(filtered);
+    }
+
+    function switchTab(id) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      event.target.classList.add('active');
+      document.getElementById(id).classList.add('active');
+    }
+
+    function copyBib(id) {
+      const p = papers.find(x => x.id === id);
+      if (p && p.bibtex) {
+        navigator.clipboard.writeText(p.bibtex).then(() => alert('BibTeX copied to clipboard!'));
+      }
+    }
+
+    renderCards(papers);
+  </script>
+</body>
+</html>
