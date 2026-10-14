@@ -108,13 +108,29 @@ def build_universal_pyz() -> Path:
         pyz_path.chmod(pyz_path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
         print(f"✓ Built self-contained cross-platform bundle: {pyz_path} ({pyz_path.stat().st_size / (1024*1024):.2f} MB)")
 
-    # Create Linux / WSL / macOS launcher script
+    # Create Linux / WSL / macOS launcher script (resolves symlinks safely)
     sh_launcher = DIST / "crawly"
     sh_launcher.write_text(
         '#!/usr/bin/env sh\n'
         '# Crawly Self-Contained Launcher for Linux / WSL / macOS (No pip install required)\n'
-        'DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"\n'
-        'exec python3 "$DIR/crawly.pyz" "$@"\n',
+        'PRG="$0"\n'
+        'while [ -h "$PRG" ]; do\n'
+        '  link=$(readlink "$PRG" 2>/dev/null) || true\n'
+        '  [ -z "$link" ] && break\n'
+        '  case "$link" in\n'
+        '    /*) PRG="$link" ;;\n'
+        '    *)  PRG="$(dirname "$PRG")/$link" ;;\n'
+        '  esac\n'
+        'done\n'
+        'DIR="$(CDPATH= cd -- "$(dirname -- "$PRG")" && pwd)"\n'
+        'if [ -f "$DIR/crawly.pyz" ]; then\n'
+        '  exec python3 "$DIR/crawly.pyz" "$@"\n'
+        'elif [ -f "${HOME}/.local/share/crawly/crawly.pyz" ]; then\n'
+        '  exec python3 "${HOME}/.local/share/crawly/crawly.pyz" "$@"\n'
+        'else\n'
+        '  echo "Error: crawly.pyz not found." >&2\n'
+        '  exit 1\n'
+        'fi\n',
         encoding="utf-8",
     )
     sh_launcher.chmod(sh_launcher.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)

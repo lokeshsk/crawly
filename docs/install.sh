@@ -35,9 +35,35 @@ fi
 unzip -q -o "${ZIP_PATH}" -d "${SHARE_DIR}"
 chmod +x "${SHARE_DIR}/crawly" "${SHARE_DIR}/crawly.pyz" 2>/dev/null || true
 
-# Symlink executable into ~/.local/bin
-ln -sf "${SHARE_DIR}/crawly" "${INSTALL_DIR}/crawly"
-ln -sf "${SHARE_DIR}/crawly" "${INSTALL_DIR}/crawly-cli" 2>/dev/null || true
+# Symlink crawly.pyz into ~/.local/bin
+ln -sf "${SHARE_DIR}/crawly.pyz" "${INSTALL_DIR}/crawly.pyz" 2>/dev/null || true
+
+# Install robust launcher into ~/.local/bin that resolves symlinks and checks fallback paths
+cat << 'EOF' > "${INSTALL_DIR}/crawly"
+#!/usr/bin/env sh
+# Crawly Self-Contained Launcher for Linux / WSL / macOS
+PRG="$0"
+while [ -h "$PRG" ]; do
+  link=$(readlink "$PRG" 2>/dev/null) || true
+  [ -z "$link" ] && break
+  case "$link" in
+    /*) PRG="$link" ;;
+    *)  PRG="$(dirname "$PRG")/$link" ;;
+  esac
+done
+DIR="$(CDPATH= cd -- "$(dirname -- "$PRG")" && pwd)"
+if [ -f "$DIR/crawly.pyz" ]; then
+  exec python3 "$DIR/crawly.pyz" "$@"
+elif [ -f "${HOME}/.local/share/crawly/crawly.pyz" ]; then
+  exec python3 "${HOME}/.local/share/crawly/crawly.pyz" "$@"
+else
+  echo "Error: crawly.pyz not found. Please re-run install.sh or verify ~/.local/share/crawly" >&2
+  exit 1
+fi
+EOF
+chmod +x "${INSTALL_DIR}/crawly"
+cp -f "${INSTALL_DIR}/crawly" "${SHARE_DIR}/crawly" 2>/dev/null || true
+ln -sf "${INSTALL_DIR}/crawly" "${INSTALL_DIR}/crawly-cli" 2>/dev/null || true
 
 echo "✓ Installed crawly to ${INSTALL_DIR}/crawly"
 

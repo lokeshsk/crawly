@@ -1,4 +1,20 @@
 #!/usr/bin/env sh
 # Crawly Self-Contained Launcher for Linux / WSL / macOS (No pip install required)
-DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
-exec python3 "$DIR/crawly.pyz" "$@"
+PRG="$0"
+while [ -h "$PRG" ]; do
+  link=$(readlink "$PRG" 2>/dev/null) || true
+  [ -z "$link" ] && break
+  case "$link" in
+    /*) PRG="$link" ;;
+    *)  PRG="$(dirname "$PRG")/$link" ;;
+  esac
+done
+DIR="$(CDPATH= cd -- "$(dirname -- "$PRG")" && pwd)"
+if [ -f "$DIR/crawly.pyz" ]; then
+  exec python3 "$DIR/crawly.pyz" "$@"
+elif [ -f "${HOME}/.local/share/crawly/crawly.pyz" ]; then
+  exec python3 "${HOME}/.local/share/crawly/crawly.pyz" "$@"
+else
+  echo "Error: crawly.pyz not found." >&2
+  exit 1
+fi
