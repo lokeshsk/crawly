@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
+  <script>
+    try {
+      document.querySelector('meta[name="color-scheme"]').content = localStorage.getItem("color-scheme") ?? "light dark";
+    } catch (e) {}
+  </script>
+  <title>crawly: the literature assistant — Open-Access Paper Discovery, PDF Downloader &amp; AI Literature Review</title>
+  <meta name="description" content="crawly: the literature assistant — Unified academic paper discovery across 8+ Open Access APIs, automatic DOI &amp; PDF waterfall downloader, BibTeX export, and AI Literature Review powered by Ollama, LM Studio, or cloud LLMs.">
+  <style>
+    :root {
+      color-scheme: light dark;
+      &:has(> head > meta[name="color-scheme"][content="dark"]) {
+        color-scheme: dark;
+      }
+      &:has(> head > meta[name="color-scheme"][content="light"]) {
+        color-scheme: light;
+      }
+
+      --bg-primary: light-dark(#f8fafc, #0b0f19);
+      --bg-surface: light-dark(#ffffff, #111827);
+      --bg-elevated: light-dark(#f1f5f9, #1e293b);
+      --text-primary: light-dark(#0f172a, #f8fafc);
+      --text-secondary: light-dark(#475569, #94a3b8);
+      --border-color: light-dark(#e2e8f0, #1f2937);
+      --accent: light-dark(#0284c7, #38bdf8);
+      --accent-strong: light-dark(#0369a1, #0284c7);
+      --accent-soft: light-dark(#e0f2fe, rgba(56, 189, 248, 0.12));
+      --success: light-dark(#15803d, #4ade80);
+      --warning: light-dark(#b45309, #fbbf24);
+      --danger: light-dark(#b91c1c, #f87171);
+      --danger-bg: light-dark(#fef2f2, rgba(239, 68, 68, 0.1));
+      --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      scrollbar-gutter: stable;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.6;
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .container {
+      max-inline-size: 1160px;
+      margin-inline: auto;
+      padding-inline: 1.5rem;
+    }
+
+    /* Navbar */
+    header.navbar {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      background-color: var(--bg-surface);
+      border-block-end: 1px solid var(--border-color);
+      padding-block: 0.9rem;
+    }
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      font-weight: 800;
+      font-size: 1.25rem;
+      color: var(--text-primary);
+      text-decoration: none;
+    }
+    .badge {
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.15rem 0.55rem;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      border: 1px solid var(--accent);
+    }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+      font-size: 0.95rem;
+      font-weight: 500;
+    }
+    .theme-btn {
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 0.5rem;
+      padding: 0.4rem 0.75rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    /* Hero */
+    .hero {
+      padding-block: 4rem 3rem;
+      text-align: center;
+    }
+    .hero h1 {
+      font-size: clamp(2rem, 4.5vw, 3.35rem);
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+      margin-block-end: 1rem;
+    }
+    .hero p.subtitle {
+      max-inline-size: 780px;
+      margin-inline: auto;
+      font-size: 1.15rem;
+      color: var(--text-secondary);
+      margin-block-end: 2rem;
+    }
+    .cta-row {
+      display: flex;
+      justify-content: center;
+      gap: 0.9rem;
+      flex-wrap: wrap;
+      margin-block-end: 2.5rem;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.35rem;
+      border-radius: 0.6rem;
+      font-weight: 600;
+      font-size: 0.95rem;
+      border: 1px solid transparent;
+      cursor: pointer;
+      text-decoration: none;
+      transition: transform 0.12s ease, opacity 0.12s ease;
+    }
+    .btn:hover {
+      text-decoration: none;
+      transform: translateY(-1px);
+    }
+    .btn-primary {
+      background: var(--accent-strong);
+      color: #ffffff;
+    }
+    .btn-secondary {
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      border-color: var(--border-color);
+    }
+
+    /* Terminal Showcase */
+    .terminal-window {
+      color-scheme: dark;
+      background: #0d1117;
+      color: #e6edf3;
+      border-radius: 0.85rem;
+      border: 1px solid #30363d;
+      overflow: hidden;
+      text-align: left;
+      max-inline-size: 940px;
+      margin-inline: auto;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+    }
+    .terminal-header {
+      background: #161b22;
+      padding: 0.65rem 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-block-end: 1px solid #30363d;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .dots {
+      display: flex;
+      gap: 0.45rem;
+    }
+    .dot {
+      inline-size: 11px;
+      block-size: 11px;
+      border-radius: 50%;
+    }
+    .dot.red { background: #ff5f56; }
+    .dot.yellow { background: #ffbd2e; }
+    .dot.green { background: #27c93f; }
+    .term-tabs {
+      display: flex;
+      gap: 0.35rem;
+      flex-wrap: wrap;
+    }
+    .term-tab {
+      background: transparent;
+      color: #8b949e;
+      border: 1px solid transparent;
+      padding: 0.25rem 0.65rem;
+      border-radius: 0.4rem;
+      font-size: 0.8rem;
+      font-family: var(--font-mono);
+      cursor: pointer;
+    }
+    .term-tab.active {
+      background: #21262d;
+      color: #58a6ff;
+      border-color: #30363d;
+    }
+    .terminal-body {
+      padding: 1.25rem 1.5rem;
+      font-family: var(--font-mono);
+      font-size: 0.86rem;
+      line-height: 1.55;
+      overflow-x: auto;
+      white-space: pre;
+    }
+    .t-cyan { color: #58a6ff; font-weight: 600; }
+    .t-green { color: #3fb950; }
+    .t-yellow { color: #d29922; }
+    .t-dim { color: #8b949e; }
+
+    /* Sections */
+    section {
+      padding-block: 3.5rem;
+      border-block-start: 1px solid var(--border-color);
+    }
+    .section-title {
+      font-size: 1.85rem;
+      margin-block-end: 0.5rem;
+      text-align: center;
+    }
+    .section-sub {
+      text-align: center;
+      color: var(--text-secondary);
+      max-inline-size: 700px;
+      margin-inline: auto;
+      margin-block-end: 2.25rem;
+    }
+
+    /* Cards Grid */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+      gap: 1.25rem;
+    }
+    .card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 0.75rem;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+    .card h3 {
+      font-size: 1.15rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .card p {
+      color: var(--text-secondary);
+      font-size: 0.94rem;
+    }
+    .code-snippet {
+      font-family: var(--font-mono);
+      font-size: 0.83rem;
+      background: var(--bg-elevated);
+      padding: 0.65rem 0.85rem;
+      border-radius: 0.5rem;
+      border: 1px solid var(--border-color);
+      overflow-x: auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .copy-btn {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      padding: 0.25rem 0.55rem;
+      border-radius: 0.35rem;
+      font-size: 0.75rem;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    /* Interactive Command Builder */
+    .builder-box {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 0.85rem;
+      padding: 1.75rem;
+      max-inline-size: 880px;
+      margin-inline: auto;
+    }
+    .builder-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-block-end: 1.25rem;
+    }
+    .field label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-block-end: 0.35rem;
+      color: var(--text-secondary);
+    }
+    .field input, .field select {
+      inline-size: 100%;
+      padding: 0.55rem 0.75rem;
+      border-radius: 0.45rem;
+      border: 1px solid var(--border-color);
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 0.92rem;
+    }
+
+    /* Legal Warning Box */
+    .legal-box {
+      background: var(--danger-bg);
+      border: 2px solid var(--danger);
+      border-radius: 0.85rem;
+      padding: 1.5rem;
+      max-inline-size: 940px;
+      margin-inline: auto;
+    }
+    .legal-box h3 {
+      color: var(--danger);
+      margin-block-end: 0.65rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .legal-box ul {
+      padding-inline-start: 1.25rem;
+      color: var(--text-primary);
+      font-size: 0.93rem;
+    }
+    .legal-box li {
+      margin-block-end: 0.45rem;
+    }
+
+    footer {
+      border-block-start: 1px solid var(--border-color);
+      padding-block: 2rem;
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+
+  <header class="navbar">
+    <div class="container nav-inner">
+      <a href="#" class="brand">
+        <span>crawly: the literature assistant</span>
+        <span class="badge">v2.1 Standalone</span>
+      </a>
+      <nav class="nav-links">
+        <a href="#downloads">Downloads</a>
+        <a href="sample-report.html" target="_blank">Sample Report ↗</a>
+        <a href="#features">Features</a>
+        <a href="#builder">Command Builder</a>
+        <a href="#legal">Legal Notice</a>
+        <a href="https://github.com/lokeshsk/crawly">GitHub</a>
+        <button class="theme-btn" id="themeToggle" type="button">Theme: Auto</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Hero -->
+    <div class="hero">
+      <h1>crawly: the literature assistant</h1>
+      <p class="subtitle">
+        Search 8+ Open Access scholarly databases simultaneously, download full-text PDFs with automatic DOI resolution, export BibTeX citations, and generate AI literature reviews using local <strong>Ollama / LM Studio</strong> or cloud LLMs — configured via <code>config.json</code> and packaged as a zero-dependency executable for Windows &amp; Linux/WSL.
+      </p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="#downloads">⚡ Fast One-Line Install</a>
+        <a class="btn btn-secondary" href="sample-report.html" target="_blank">📊 Live Sample Report</a>
+        <a class="btn btn-secondary" href="https://github.com/lokeshsk/crawly/releases/latest" target="_blank" rel="noopener">📦 Releases &amp; Binaries</a>
+        <a class="btn btn-secondary" href="https://github.com/lokeshsk/crawly" target="_blank" rel="noopener">GitHub</a>
+      </div>
+
+      <!-- Interactive Terminal Preview -->
+      <div class="terminal-window">
+        <div class="terminal-header">
+          <div class="dots">
+            <span class="dot red"></span>
+            <span class="dot yellow"></span>
+            <span class="dot green"></span>
+          </div>
+          <div class="term-tabs" role="tablist">
+            <button class="term-tab active" data-tab="tui" type="button">1. Interactive TUI</button>
+            <button class="term-tab" data-tab="search" type="button">2. Multi-Source Search</button>
+            <button class="term-tab" data-tab="ai" type="button">3. AI Review (Modes 1–3)</button>
+            <button class="term-tab" data-tab="doctor" type="button">4. System Doctor</button>
+          </div>
+        </div>
+        <div class="terminal-body" id="termOutput">╭──────────────────────────────────────────────────────────────────────────────╮
+│ <span class="t-cyan">crawly: the literature assistant</span> — Multi-Source Academic Search, Open-Access │
+│ PDF Downloader &amp; AI Literature Review                                        │
+│ <span class="t-dim">Open Databases:</span>  OpenAlex · Unpaywall · Semantic Scholar · arXiv · Europe    │
+│ PMC · Crossref · DOAJ · HAL · OpenAIRE                                       │
+│ <span class="t-dim">Compliance Mode:</span> <span class="t-green">● Strict Legal Open-Access Mode (Default)</span>                   │
+│ <span class="t-dim">AI Engine:</span>       <span class="t-green">Ollama connected (http://localhost:11434) - Models: llama3.2</span> │
+│ <span class="t-dim">Config File:</span>     <span class="t-cyan">config.json</span>                                                 │
+╰──────────────────────────────────────────────────────────────────────────────╯
+Main Menu:
+  <span class="t-cyan">1.</span> Search &amp; Discover Papers (OpenAlex, Semantic Scholar, arXiv, Europe PMC, Crossref, DOAJ, HAL, OpenAIRE)
+  <span class="t-cyan">2.</span> Download Full-Text PDFs (Legal Open Access Default + Optional Risk-Gated Third-Party Fallback)
+  <span class="t-cyan">3.</span> AI Literature Review &amp; Q&amp;A (Mode 1: Summaries · Mode 2: Literature Review Matrix · Mode 3: Chat with PDFs)
+  <span class="t-cyan">4.</span> Run End-to-End Automated Pipeline (Search ➔ Download PDFs ➔ AI Literature Review)
+  <span class="t-cyan">5.</span> Configure AI Models &amp; Settings (Updates config.json: Ollama, LM Studio, OpenAI API, Gemini, Anthropic)
+  <span class="t-cyan">6.</span> Export Dataset to BibTeX (.bib) (For Zotero, Mendeley, EndNote &amp; Overleaf/LaTeX)
+  <span class="t-cyan">7.</span> Run System &amp; API Health Doctor</div>
+      </div>
+    </div>
+
+    <!-- Zero-Dependency Downloads -->
+    <section id="downloads">
+      <h2 class="section-title">Zero-Setup Downloads for Windows &amp; Linux / WSL</h2>
+      <p class="section-sub">
+        Normal users never need to run <code>pip install</code> or touch <code>requirements.txt</code>. Run the one-line terminal installer or download standalone executables directly from GitHub:
+      </p>
+
+      <!-- One-Line Installers Highlighted -->
+      <div style="max-width: 920px; margin: 0 auto 1.75rem auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 1.25rem;">
+        <div style="background: var(--bg-surface); border: 2px solid var(--accent); border-radius: 0.85rem; padding: 1.35rem; box-shadow: 0 4px 20px rgba(2, 132, 199, 0.1);">
+          <div style="font-weight: 800; font-size: 1.05rem; margin-bottom: 0.5rem; color: #38bdf8; display: flex; align-items: center; gap: 0.5rem;">
+            🐧 Linux / macOS / WSL (One-Liner)
+          </div>
+          <p style="font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
+            Downloads the portable release, creates a symlink in <code>~/.local/bin</code>, and configures PATH automatically.
+          </p>
+          <div class="code-snippet">
+            <code>curl -fsSL https://lokeshsk.github.io/crawly/install.sh | bash</code>
+            <button class="copy-btn" data-copy="curl -fsSL https://lokeshsk.github.io/crawly/install.sh | bash" type="button">Copy</button>
+          </div>
+        </div>
+
+        <div style="background: var(--bg-surface); border: 2px solid var(--accent); border-radius: 0.85rem; padding: 1.35rem; box-shadow: 0 4px 20px rgba(2, 132, 199, 0.1);">
+          <div style="font-weight: 800; font-size: 1.05rem; margin-bottom: 0.5rem; color: #38bdf8; display: flex; align-items: center; gap: 0.5rem;">
+            🪟 Windows PowerShell (One-Liner)
+          </div>
+          <p style="font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
+            Extracts the release into <code>%LOCALAPPDATA%\crawly</code> and configures User PATH automatically.
+          </p>
+          <div class="code-snippet">
+            <code>irm https://lokeshsk.github.io/crawly/install.ps1 | iex</code>
+            <button class="copy-btn" data-copy="irm https://lokeshsk.github.io/crawly/install.ps1 | iex" type="button">Copy</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- GitHub Release Redirect Box -->
+      <div style="max-width: 920px; margin: 0 auto; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 0.85rem; padding: 1.75rem; text-align: center;">
+        <h3 style="margin: 0 0 0.5rem 0; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+          📦 Prefer Manual Downloads or Standalone Executables?
+        </h3>
+        <p style="margin: 0 0 1.25rem 0; color: var(--text-secondary); font-size: 0.95rem; max-width: 650px; margin-inline: auto;">
+          Looking for the raw native <code>.exe</code>, native Linux <code>x86_64</code> binary, single-file <code>crawly.pyz</code>, or universal cross-platform <code>.zip</code> bundle? Grab all pre-compiled assets directly from the official GitHub Release.
+        </p>
+        <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+          <a class="btn btn-primary" href="https://github.com/lokeshsk/crawly/releases/latest" target="_blank" rel="noopener">
+            🚀 Download Standalone Binaries on GitHub Releases
+          </a>
+          <a class="btn btn-secondary" href="https://github.com/lokeshsk/crawly" target="_blank" rel="noopener">
+            ⭐ Star Repository on GitHub
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Core Features -->
+    <section id="features">
+      <h2 class="section-title">Built for Serious Literature Reviews</h2>
+      <p class="section-sub">Everything a researcher needs from initial keyword search to citation networks, full-text synthesis, and Zotero integration.</p>
+      <div class="grid">
+        <div class="card">
+          <h3>🌐 8+ Legal Open-Access APIs</h3>
+          <p>Queries OpenAlex, Semantic Scholar, arXiv, Europe PMC, Crossref, DOAJ, HAL Open Archive, and OpenAIRE concurrently with live rich progress bars.</p>
+        </div>
+        <div class="card">
+          <h3>📥 Smart DOI &amp; PDF Waterfall</h3>
+          <p>Resolves missing DOIs from existing CSVs via URL parsing, OpenAlex, and Crossref, then checks Unpaywall, arXiv preprints, Europe PMC, and OpenAlex OA with strict <code>%PDF-</code> verification.</p>
+        </div>
+        <div class="card">
+          <h3>🌲 Citation Graph Snowballing</h3>
+          <p>Given an anchor DOI or paper, <code>crawly snowball</code> traces foundational works cited (backward) and recent papers citing it (forward) via OpenAlex &amp; Semantic Scholar.</p>
+        </div>
+        <div class="card">
+          <h3>📊 Interactive HTML Dashboard</h3>
+          <p>Run <code>crawly report</code> to export a self-contained interactive HTML review dashboard with live search, filters, paper cards, dark mode, and BibTeX copy.</p>
+          <a class="btn btn-secondary" style="margin-top:0.6rem; font-size:0.83rem; width:fit-content; display:inline-block;" href="sample-report.html" target="_blank">🌐 Open Sample Report Demo ➔</a>
+        </div>
+        <div class="card">
+          <h3>🗂️ Direct Local Zotero Sync</h3>
+          <p>Run <code>crawly zotero</code> to sync your discovered dataset and downloaded PDFs directly into your local Zotero desktop library via connector API or linked PDF bundle.</p>
+        </div>
+        <div class="card">
+          <h3>🎯 Research Gaps &amp; Roadmap</h3>
+          <p>Mode <code>gaps</code> focuses on methodology constraints, assumptions, and limitations across papers to produce an actionable matrix of open challenges for researchers.</p>
+        </div>
+        <div class="card">
+          <h3>🐕 Literature Watchdog Alerts</h3>
+          <p>Run <code>crawly watch</code> to scan recent preprints and journal articles from the past 7 days matching your research topics and generate an alert digest.</p>
+        </div>
+        <div class="card">
+          <h3>⚙️ Single <code>config.json</code> Setup</h3>
+          <p>Configure <strong>Ollama</strong>, <strong>LM Studio</strong>, OpenAI-compatible servers (vLLM, Groq, DeepSeek), Gemini, Claude, temperature, and limits in one labeled file.</p>
+        </div>
+        <div class="card">
+          <h3>📚 Automatic BibTeX (.bib) Export</h3>
+          <p>Every search and download batch automatically exports a clean <code>.bib</code> file ready for Overleaf, LaTeX, Zotero, Mendeley, and JabRef.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Interactive CLI Command Builder -->
+    <section id="builder">
+      <h2 class="section-title">Interactive CLI Command Builder</h2>
+      <p class="section-sub">Customize your research workflow and copy the exact command for Windows or Linux/WSL.</p>
+      <div class="builder-box">
+        <div class="builder-grid">
+          <div class="field">
+            <label for="bWorkflow">Workflow Action</label>
+            <select id="bWorkflow">
+              <option value="pipeline">Full Pipeline (Search ➔ Download ➔ AI Review)</option>
+              <option value="search">Search Open Databases Only</option>
+              <option value="snowball">Citation Snowballing (Forward &amp; Backward)</option>
+              <option value="download">Download PDFs from CSV</option>
+              <option value="ai">Run AI Literature Review on CSV</option>
+              <option value="report">Generate Interactive HTML Review Dashboard</option>
+              <option value="zotero">Sync Dataset &amp; Linked PDFs to Zotero</option>
+              <option value="watch">Literature Watchdog Alerts Digest</option>
+              <option value="bibtex">Export CSV to BibTeX (.bib)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="bTopic">Keywords / DOI / CSV Dataset</label>
+            <input id="bTopic" type="text" value="synthetic aperture radar deep learning">
+          </div>
+          <div class="field">
+            <label for="bAiMode">AI Review Mode</label>
+            <select id="bAiMode">
+              <option value="all">Mode 1 + Mode 2 (Summaries + Review Matrix)</option>
+              <option value="1">Mode 1: Per-Paper Structured Summaries</option>
+              <option value="2">Mode 2: Synthesized Literature Review Matrix</option>
+              <option value="3">Mode 3: Interactive Q&amp;A Chat over PDFs</option>
+              <option value="gaps">Mode gaps: Research Gaps &amp; Roadmap</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="bProvider">AI Backend</label>
+            <select id="bProvider">
+              <option value="ollama">Ollama (Local Self-Hosted)</option>
+              <option value="lmstudio">LM Studio (Local Server)</option>
+              <option value="openai_compatible">OpenAI-Compatible (vLLM / OpenRouter / OpenAI)</option>
+              <option value="gemini">Google Gemini API</option>
+              <option value="anthropic">Anthropic Claude API</option>
+              <option value="extractive">Offline Extractive NLP (No LLM needed)</option>
+            </select>
+          </div>
+        </div>
+        <div class="code-snippet">
+          <code id="builtCommand">./dist/crawly pipeline "synthetic aperture radar deep learning" -o sar_review --limit 10 --mode all</code>
+          <button class="copy-btn" id="copyBuiltBtn" type="button">Copy Command</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Legal Compliance & Disclaimer -->
+    <section id="legal">
+      <div class="legal-box">
+        <h3>⚠ Legal Compliance Framework &amp; Non-Liability Disclaimer</h3>
+        <ul>
+          <li><strong>Not Recommended by Developers:</strong> The developers, authors, and contributors of <strong>crawly (crawly: the literature assistant)</strong> <strong>do NOT recommend, endorse, or encourage</strong> the use of Sci-Hub, shadow libraries, or automated scraping of websites that prohibit automated access or bypass copyright/paywall protections.</li>
+          <li><strong>Strict Legal Open-Access Default:</strong> By default, <code>crawly</code> operates strictly within a legal framework using official Open Access APIs and repositories (OpenAlex, Unpaywall, Semantic Scholar, arXiv, Europe PMC, Crossref, DOAJ, HAL, OpenAIRE).</li>
+          <li><strong>Use at Your Own Sole Risk &amp; Zero Developer Liability:</strong> Any optional feature that goes beyond official Open Access APIs is disabled by default and guarded by an explicit interactive risk-acceptance prompt. If a user chooses to enable or continue with such external websites or tools, <strong>they do so strictly at their own sole risk and legal responsibility</strong>, and the developers shall <strong>not be held liable</strong> for any copyright claims, Terms of Service violations, ISP restrictions, or any other harm or damages.</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container">
+      <p><strong>crawly: the literature assistant</strong> · <a href="https://github.com/lokeshsk/crawly">github.com/lokeshsk/crawly</a> · Released under the GPL-3.0 License</p>
+    </div>
+  </footer>
+
+  <script>
+    const termSnippets = {
+      tui: `╭──────────────────────────────────────────────────────────────────────────────╮
+│ <span class="t-cyan">crawly: the literature assistant</span> — Multi-Source Academic Search, Open-Access │
+│ PDF Downloader &amp; AI Literature Review                                        │
+│ <span class="t-dim">Open Databases:</span>  OpenAlex · Unpaywall · Semantic Scholar · arXiv · Europe    │
+│ PMC · Crossref · DOAJ · HAL · OpenAIRE                                       │
+│ <span class="t-dim">Compliance Mode:</span> <span class="t-green">● Strict Legal Open-Access Mode (Default)</span>                   │
+│ <span class="t-dim">AI Engine:</span>       <span class="t-green">Ollama connected (http://localhost:11434) - Models: llama3.2</span> │
+│ <span class="t-dim">Config File:</span>     <span class="t-cyan">config.json</span>                                                 │
+╰──────────────────────────────────────────────────────────────────────────────╯
+Main Menu:
+  <span class="t-cyan">1.</span> Search &amp; Discover Papers (OpenAlex, Semantic Scholar, arXiv, Europe PMC, Crossref, DOAJ, HAL, OpenAIRE)
+  <span class="t-cyan">2.</span> Download Full-Text PDFs (Legal Open Access Default + Optional Risk-Gated Third-Party Fallback)
+  <span class="t-cyan">3.</span> AI Literature Review &amp; Q&amp;A (Mode 1: Summaries · Mode 2: Literature Review Matrix · Mode 3: Chat with PDFs)
+  <span class="t-cyan">4.</span> Run End-to-End Automated Pipeline (Search ➔ Download PDFs ➔ AI Literature Review)
+  <span class="t-cyan">5.</span> Configure AI Models &amp; Settings (Updates config.json: Ollama, LM Studio, OpenAI API, Gemini, Anthropic)
+  <span class="t-cyan">6.</span> Export Dataset to BibTeX (.bib) (For Zotero, Mendeley, EndNote &amp; Overleaf/LaTeX)
+  <span class="t-cyan">7.</span> Run System &amp; API Health Doctor`,
+      search: `$ ./dist/crawly search "synthetic aperture radar deep learning" -o sar_dl.csv -l 10 --min-year 2020
+  Searching 8 academic databases ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100% 8/8 0:00:02 0:00:00
+  <span class="t-green">✓</span> OpenAlex: <span class="t-cyan">10</span> papers
+  <span class="t-green">✓</span> Semantic Scholar: <span class="t-cyan">10</span> papers
+  <span class="t-green">✓</span> arXiv: <span class="t-cyan">10</span> papers
+  <span class="t-green">✓</span> Europe PMC / PubMed: <span class="t-cyan">10</span> papers
+  <span class="t-green">✓</span> Crossref: <span class="t-cyan">10</span> papers
+  <span class="t-green">✓</span> DOAJ (Open Access Journals): <span class="t-cyan">8</span> papers
+  <span class="t-green">✓</span> HAL Open Archive: <span class="t-cyan">7</span> papers
+  <span class="t-green">✓</span> OpenAIRE Graph: <span class="t-cyan">10</span> papers
+
+<span class="t-green">✓ Saved CSV to sar_dl.csv and BibTeX to sar_dl.bib (58 unique deduplicated papers)</span>`,
+      ai: `$ ./dist/crawly ai sar_dl.csv --mode all
+  Mode 1: Generating per-paper summaries ━━━━━━━━━━━━━━━━━━━━━━━━ 100% 20/20 0:00:08 0:00:00
+  Mode 2: Synthesizing literature review ━━━━━━━━━━━━━━━━━━━━━━━━ 100% 21/21 0:00:04 0:00:00
+<span class="t-green">✓ Mode 1 Per-Paper Summaries saved to:</span> sar_dl/sar_dl_paper_summaries.md
+<span class="t-green">✓ Mode 2 Literature Review Matrix saved to:</span> sar_dl/sar_dl_literature_review.md`,
+      doctor: `$ ./dist/crawly doctor
+━━━ crawly: System &amp; API Health Doctor ━━━
+  Probing academic APIs &amp; AI backend ━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100% 9/9 0:00:03 0:00:00
+  OpenAlex API              <span class="t-green">✓ ONLINE</span>   https://api.openalex.org/works
+  Semantic Scholar API      <span class="t-green">✓ ONLINE</span>   https://api.semanticscholar.org/graph/v1/paper/search
+  arXiv API                 <span class="t-green">✓ ONLINE</span>   http://export.arxiv.org/api/query
+  Europe PMC API            <span class="t-green">✓ ONLINE</span>   https://www.ebi.ac.uk/europepmc/webservices/rest/search
+  Crossref API              <span class="t-green">✓ ONLINE</span>   https://api.crossref.org/works
+  DOAJ API                  <span class="t-green">✓ ONLINE</span>   https://doaj.org/api/search/articles/radar
+  HAL Open Archive API      <span class="t-green">✓ ONLINE</span>   https://api.archives-ouvertes.fr/search/`
+    };
+
+    document.querySelectorAll('.term-tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.term-tab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('termOutput').innerHTML = termSnippets[btn.dataset.tab];
+      });
+    });
+
+    function updateBuilder() {
+      const wf = document.getElementById('bWorkflow').value;
+      const topic = document.getElementById('bTopic').value.trim() || 'research_topic';
+      const mode = document.getElementById('bAiMode').value;
+      const prov = document.getElementById('bProvider').value;
+      const slug = topic.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 24) || 'dataset';
+      let cmd = '';
+      if (wf === 'pipeline') {
+        cmd = `./dist/crawly pipeline "${topic}" -o ${slug} --limit 10 --mode ${mode === '3' ? 'all' : mode}`;
+      } else if (wf === 'search') {
+        cmd = `./dist/crawly search "${topic}" -o ${slug}.csv --limit 15`;
+      } else if (wf === 'snowball') {
+        cmd = `./dist/crawly snowball "${topic}" -l 10 -o snowball_${slug}.csv`;
+      } else if (wf === 'download') {
+        const csvName = topic.endsWith('.csv') ? topic : `${slug}.csv`;
+        cmd = `./dist/crawly download ${csvName}`;
+      } else if (wf === 'ai') {
+        const csvName = topic.endsWith('.csv') ? topic : `${slug}.csv`;
+        cmd = `./dist/crawly ai ${csvName} --mode ${mode} --provider ${prov}`;
+      } else if (wf === 'report') {
+        const csvName = topic.endsWith('.csv') ? topic : `${slug}.csv`;
+        cmd = `./dist/crawly report ${csvName}`;
+      } else if (wf === 'zotero') {
+        const csvName = topic.endsWith('.csv') ? topic : `${slug}.csv`;
+        cmd = `./dist/crawly zotero ${csvName} -c "${slug.toUpperCase()}"`;
+      } else if (wf === 'watch') {
+        cmd = `./dist/crawly watch "${topic}" -o watchdog_${slug}.md`;
+      } else if (wf === 'bibtex') {
+        const csvName = topic.endsWith('.csv') ? topic : `${slug}.csv`;
+        cmd = `./dist/crawly export-bibtex ${csvName}`;
+      }
+      document.getElementById('builtCommand').textContent = cmd;
+    }
+
+    ['bWorkflow', 'bTopic', 'bAiMode', 'bProvider'].forEach(id => {
+      document.getElementById(id).addEventListener('input', updateBuilder);
+      document.getElementById(id).addEventListener('change', updateBuilder);
+    });
+
+    document.querySelectorAll('[data-copy]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        navigator.clipboard.writeText(btn.dataset.copy);
+        const orig = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = orig; }, 1200);
+      });
+    });
+
+    document.getElementById('copyBuiltBtn').addEventListener('click', (e) => {
+      const txt = document.getElementById('builtCommand').textContent;
+      navigator.clipboard.writeText(txt);
+      e.target.textContent = 'Copied!';
+      setTimeout(() => { e.target.textContent = 'Copy Command'; }, 1200);
+    });
+
+    // 3-state color-scheme toggle (System -> Dark -> Light) per modern-web-guidance
+    const metaScheme = document.querySelector('meta[name="color-scheme"]');
+    const themeBtn = document.getElementById('themeToggle');
+    function syncThemeLabel() {
+      const val = metaScheme.content;
+      themeBtn.textContent = val === 'dark' ? 'Theme: Dark' : (val === 'light' ? 'Theme: Light' : 'Theme: Auto');
+    }
+    syncThemeLabel();
+    themeBtn.addEventListener('click', () => {
+      const cur = metaScheme.content;
+      const next = cur === 'light dark' ? 'dark' : (cur === 'dark' ? 'light' : 'light dark');
+      metaScheme.content = next;
+      try {
+        if (next === 'light dark') localStorage.removeItem('color-scheme');
+        else localStorage.setItem('color-scheme', next);
+      } catch (e) {}
+      syncThemeLabel();
+    });
+  </script>
+</body>
+</html>
+
