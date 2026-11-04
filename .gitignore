@@ -3,9 +3,10 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# PyInstaller build artifacts (keep dist/ tracked for standalone users)
+# PyInstaller and pip build artifacts
 build/
 *.spec
+*.egg-info/
 
 # Virtual environments
 venv/

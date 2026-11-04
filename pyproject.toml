@@ -1,0 +1,70 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "crawly-ai"
+dynamic = ["version"]
+description = "crawly: the literature assistant — Multi-source academic paper discovery, PDF downloader & local/cloud AI literature review engine"
+readme = "README.md"
+authors = [
+    { name = "Lokesh Kumar", email = "crawly.theliteratureassistant@gmail.com" }
+]
+license = "GPL-3.0-or-later"
+requires-python = ">=3.9"
+keywords = [
+    "academic",
+    "research",
+    "literature-review",
+    "papers",
+    "pdf-downloader",
+    "open-access",
+    "arxiv",
+    "openalex",
+    "semantic-scholar",
+    "europe-pmc",
+    "crossref",
+    "zotero",
+    "llm",
+    "ollama",
+    "lm-studio",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: OS Independent",
+    "Environment :: Console",
+]
+dependencies = [
+    "requests>=2.31.0",
+    "beautifulsoup4>=4.12.0",
+    "typing-extensions>=4.0.0",
+    "lxml>=4.9.0",
+    "rich>=13.7.0",
+    "pypdf>=4.0.0",
+]
+
+[project.urls]
+Homepage = "https://lokeshsk.github.io/crawly/"
+Documentation = "https://lokeshsk.github.io/crawly/"
+Repository = "https://github.com/lokeshsk/crawly"
+Issues = "https://github.com/lokeshsk/crawly/issues"
+Changelog = "https://github.com/lokeshsk/crawly/releases"
+
+[project.scripts]
+crawly = "crawly_core.cli:main"
+crawly-cli = "crawly_core.cli:main"
+
+[tool.setuptools]
+packages = ["crawly_core"]
+py-modules = ["crawly", "downloader"]
+
+[tool.setuptools.dynamic]
+version = { attr = "crawly_core.__version__" }

@@ -31,6 +31,10 @@
   ```powershell
   irm https://lokeshsk.github.io/crawly/install.ps1 | iex
   ```
+- **Python / PyPI (`pip`):**
+  ```bash
+  pip install crawly-ai
+  ```
 
 ---
 

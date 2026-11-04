@@ -21,6 +21,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write
 
 jobs:
   auto-version-and-gate:
@@ -180,7 +181,7 @@ jobs:
       - name: Install build & runtime dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt pyinstaller
+          pip install -r requirements.txt pyinstaller build twine
 
       - name: Build Universal Bundle & Native Binary
         run: |
@@ -238,13 +239,58 @@ jobs:
             - **`crawly-windows-x86_64.exe`**: Native standalone Windows executable binary.
             - **`config.json`**: External configuration file with default values and documentation for all AI providers and academic endpoints.
 
+            ### 🐍 PyPI Package
+            - **`pip install crawly-ai`**: Install directly from PyPI into any Python 3.9+ environment.
+
             ### 🛡️ Quality & Compliance
-            - **100% Automated Test & Code Coverage Verified** (`1883 / 1883` statements).
+            - **100% Automated Test & Code Coverage Verified** (`2261 / 2261` statements).
             - **Strict Legal Open-Access Default** with mandatory user risk-acceptance prompts before any optional third-party fallback.
           files: |
             release_assets/crawly-universal-windows-linux.zip
             release_assets/crawly-linux-x86_64
             release_assets/crawly-windows-x86_64.exe
             release_assets/crawly.pyz
+            release_assets/*.whl
+            release_assets/*.tar.gz
             release_assets/config.json
+
+  publish-pypi:
+    name: Publish crawly-ai to PyPI
+    needs: [auto-version-and-gate, publish-release]
+    if: needs.auto-version-and-gate.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.auto-version-and-gate.outputs.release_tag }}
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build & publish tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+
+      - name: Build wheel and sdist
+        run: |
+          python -m build
+
+      - name: Validate distributions with twine
+        run: |
+          twine check dist/*
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
+          password: ${{ secrets.PYPI_API_TOKEN }}
+        continue-on-error: true
+
 

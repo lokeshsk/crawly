@@ -205,8 +205,21 @@ def build_native_pyinstaller_binary() -> None:
         print(f"✓ Built native standalone executable: {out_bin} ({out_bin.stat().st_size / (1024*1024):.2f} MB)")
 
 
+def build_wheel_and_sdist() -> None:
+    if importlib.util.find_spec("build") is None:
+        print("ℹ 'build' module not installed; skipping wheel/sdist generation.")
+        return
+    print("Building sdist and wheel for PyPI (crawly-ai)...")
+    cmd = [sys.executable, "-m", "build", "--outdir", str(DIST)]
+    subprocess.run(cmd, cwd=str(ROOT), check=True)
+    for p in ROOT.glob("*.egg-info"):
+        shutil.rmtree(p, ignore_errors=True)
+    shutil.rmtree(ROOT / "build", ignore_errors=True)
+
+
 if __name__ == "__main__":
     build_universal_pyz()
+    build_wheel_and_sdist()
     if "--native" in sys.argv:
         build_native_pyinstaller_binary()
 
