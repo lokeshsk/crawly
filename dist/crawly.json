@@ -1,0 +1,84 @@
+{
+  "_documentation": {
+    "description": "crawly: the literature assistant \u2014 Master Configuration File. Edit any value below to customize AI models, search defaults, API keys, timeouts, and download behavior.",
+    "repository": "https://github.com/lokeshsk/crawly",
+    "ai_provider_options": [
+      "ollama            -> Local self-hosted Ollama server (default base_url: http://localhost:11434)",
+      "lmstudio          -> Local self-hosted LM Studio server (default base_url: http://localhost:1234/v1)",
+      "openai_compatible -> Any OpenAI-compatible API (OpenAI, OpenRouter, Groq, DeepSeek, Together, vLLM, llama.cpp)",
+      "gemini            -> Google Gemini API (requires ai_api_key)",
+      "anthropic         -> Anthropic Claude API (requires ai_api_key)",
+      "extractive        -> Built-in offline NLP & BM25 extractive engine (requires no local server or API key)"
+    ],
+    "default_sort_options": [
+      "relevance -> Best match across databases",
+      "desc      -> Newest publication year first",
+      "asc       -> Oldest publication year first",
+      "citations -> Highest citation count first"
+    ],
+    "available_sources": [
+      "openalex",
+      "semantic_scholar",
+      "arxiv",
+      "europe_pmc",
+      "crossref",
+      "doaj",
+      "hal",
+      "openaire",
+      "google_scholar"
+    ]
+  },
+  "ai_provider": "lmstudio",
+  "ai_model": "local-model",
+  "ai_base_url": "http://localhost:1234/v1",
+  "ai_api_key": "ant-key",
+  "temperature": 0.2,
+  "max_pdf_pages": 25,
+  "max_text_chars": 14000,
+  "default_sources": [
+    "openalex",
+    "semantic_scholar",
+    "arxiv",
+    "europe_pmc",
+    "crossref",
+    "doaj",
+    "hal",
+    "openaire"
+  ],
+  "default_limit_per_source": 10,
+  "default_sort": "relevance",
+  "request_timeout": 12,
+  "unpaywall_email": "crawly.theliteratureassistant@gmail.com",
+  "semantic_scholar_api_key": "",
+  "core_api_key": "",
+  "polite_user_agent": "crawly/2.0 (crawly: the literature assistant; https://github.com/lokeshsk/crawly; mailto:crawly.theliteratureassistant@gmail.com)",
+  "browser_user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+  "use_scihub_fallback": false,
+  "use_selenium_fallback": false,
+  "scihub_cdn_url": "https://sci.bban.top/pdf/{doi}.pdf",
+  "scihub_mirrors": [
+    "https://sci-hub.ee",
+    "https://sci-hub.ren",
+    "https://sci-hub.al",
+    "https://sci-hub.ru",
+    "https://sci-hub.st",
+    "https://sci-hub.wf",
+    "https://sci-hub.se"
+  ],
+  "api_endpoints": {
+    "openalex_works": "https://api.openalex.org/works",
+    "semantic_scholar_search": "https://api.semanticscholar.org/graph/v1/paper/search",
+    "semantic_scholar_paper": "https://api.semanticscholar.org/graph/v1/paper",
+    "arxiv_query": "http://export.arxiv.org/api/query",
+    "europe_pmc_search": "https://www.ebi.ac.uk/europepmc/webservices/rest/search",
+    "europe_pmc_pdf": "https://europepmc.org/backend/ptpmcrender.fcgi",
+    "crossref_works": "https://api.crossref.org/works",
+    "doaj_search": "https://doaj.org/api/search/articles",
+    "hal_search": "https://api.archives-ouvertes.fr/search/",
+    "openaire_search": "https://api.openaire.eu/search/publications",
+    "unpaywall_base": "https://api.unpaywall.org/v2",
+    "google_scholar": "https://scholar.google.com/scholar",
+    "gemini_base": "https://generativelanguage.googleapis.com/v1beta/models",
+    "anthropic_messages": "https://api.anthropic.com/v1/messages"
+  }
+}

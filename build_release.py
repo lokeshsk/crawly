@@ -150,7 +150,9 @@ def build_universal_pyz() -> Path:
         encoding="utf-8",
     )
 
-    # Copy config.json into dist/ so standalone users can directly edit it
+    # Copy crawly.json and config.json into dist/ so standalone users can directly edit it
+    if (ROOT / "crawly.json").exists():
+        shutil.copy2(ROOT / "crawly.json", DIST / "crawly.json")
     if (ROOT / "config.json").exists():
         shutil.copy2(ROOT / "config.json", DIST / "config.json")
 
@@ -160,6 +162,8 @@ def build_universal_pyz() -> Path:
         zf.write(pyz_path, arcname="crawly.pyz")
         zf.write(sh_launcher, arcname="crawly")
         zf.write(bat_launcher, arcname="crawly.bat")
+        if (ROOT / "crawly.json").exists():
+            zf.write(ROOT / "crawly.json", arcname="crawly.json")
         if (ROOT / "config.json").exists():
             zf.write(ROOT / "config.json", arcname="config.json")
         if (ROOT / "README.md").exists():

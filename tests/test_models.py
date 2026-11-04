@@ -162,15 +162,31 @@ class TestModels(unittest.TestCase):
             with patch("crawly_core.models.csv.DictReader", return_value=[{}, p1.to_csv_row()]):
                 self.assertEqual(len(load_papers_from_csv(csv_file)), 1)
 
-            # Test resolve_config_path branches (including when neither cwd nor root exists -> line 22)
+            # Test resolve_config_path branches: crawly.json, config.json, root fallbacks, and default
             old_cwd = Path.cwd()
             try:
                 os.chdir(tdir)
+                # 1. config.json exists in cwd
                 self.assertEqual(resolve_config_path(), cfg_file)
+                # 2. crawly.json exists in cwd (takes precedence)
+                crawly_cfg = tdir / "crawly.json"
+                crawly_cfg.write_text("{}", encoding="utf-8")
+                self.assertEqual(resolve_config_path(), crawly_cfg)
+                crawly_cfg.unlink()
                 cfg_file.unlink()
+
+                # 3. Fallbacks to project root or default
                 resolved = resolve_config_path()
-                self.assertEqual(resolved.name, "config.json")
+                self.assertIn(resolved.name, ("crawly.json", "config.json"))
+
+                # 4. When nothing exists anywhere
                 with patch.object(Path, "exists", return_value=False):
+                    self.assertEqual(resolve_config_path().name, "crawly.json")
+
+                # 5. When project_root has crawly.json vs config.json
+                with patch.object(Path, "exists", side_effect=[False, False, True, False]):
+                    self.assertEqual(resolve_config_path().name, "crawly.json")
+                with patch.object(Path, "exists", side_effect=[False, False, False, True]):
                     self.assertEqual(resolve_config_path().name, "config.json")
             finally:
                 os.chdir(old_cwd)

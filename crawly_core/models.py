@@ -12,14 +12,19 @@ from typing import Any, Dict, List, Optional, Sequence
 
 
 def resolve_config_path() -> Path:
-    """Locate config.json in current working directory first, then project root."""
-    cwd_cfg = Path.cwd() / "config.json"
-    if cwd_cfg.exists():
-        return cwd_cfg
-    root_cfg = Path(__file__).resolve().parent.parent / "config.json"
-    if root_cfg.exists():
-        return root_cfg
-    return cwd_cfg
+    """Locate config file in cwd or project root (prefers crawly.json, falls back to config.json for backward compatibility)."""
+    cwd = Path.cwd()
+    project_root = Path(__file__).resolve().parent.parent
+
+    if (cwd / "crawly.json").exists():
+        return cwd / "crawly.json"
+    if (cwd / "config.json").exists():
+        return cwd / "config.json"
+    if (project_root / "crawly.json").exists():
+        return project_root / "crawly.json"
+    if (project_root / "config.json").exists():
+        return project_root / "config.json"
+    return cwd / "crawly.json"
 
 
 CONFIG_PATH = resolve_config_path()

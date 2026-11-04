@@ -469,7 +469,7 @@ def interactive_ai_flow(config: AppConfig, preset_csv: Optional[Path] = None, pr
 def interactive_config_flow(config: AppConfig) -> AppConfig:
     cfg_path = resolve_config_path()
     console.print(f"\n[bold cyan]━━━ 5. Configure AI Provider & Settings ({cfg_path.name}) ━━━[/bold cyan]")
-    console.print(f"[dim]All settings are persisted to [bold]{cfg_path}[/bold] (you can also edit config.json directly in any text editor).[/dim]\n")
+    console.print(f"[dim]All settings are persisted to [bold]{cfg_path}[/bold] (you can also edit {cfg_path.name} directly in any text editor).[/dim]\n")
     console.print("  [bold cyan]1.[/bold cyan] [cyan]Ollama (Local Self-Hosted)[/cyan] — e.g. http://localhost:11434")
     console.print("  [bold cyan]2.[/bold cyan] [cyan]LM Studio (Local Self-Hosted Server)[/cyan] — e.g. http://localhost:1234/v1")
     console.print("  [bold cyan]3.[/bold cyan] [cyan]Any OpenAI-Compatible Endpoint[/cyan] (Custom Base URL + API Key: vLLM, llama.cpp, OpenRouter, Groq, DeepSeek, OpenAI)")
@@ -742,7 +742,7 @@ def run_interactive_tui() -> None:
         console.print("  [bold cyan]2.[/bold cyan] Download Full-Text PDFs [dim](Legal Open Access Default + Optional Risk-Gated Third-Party Fallback)[/dim]")
         console.print("  [bold cyan]3.[/bold cyan] AI Literature Review & Q&A [dim](Mode 1: Summaries · Mode 2: Matrix · Mode 3: RAG Q&A · Mode gaps: Open Gaps)[/dim]")
         console.print("  [bold cyan]4.[/bold cyan] Run End-to-End Automated Pipeline [dim](Search ➔ Download PDFs ➔ AI Literature Review)[/dim]")
-        console.print("  [bold cyan]5.[/bold cyan] Configure AI Models & Settings [dim](Updates config.json: Ollama, LM Studio, OpenAI API, Gemini, Claude)[/dim]")
+        console.print("  [bold cyan]5.[/bold cyan] Configure AI Models & Settings [dim](Updates crawly.json: Ollama, LM Studio, OpenAI API, Gemini, Claude)[/dim]")
         console.print("  [bold cyan]6.[/bold cyan] Export Dataset to BibTeX (.bib) [dim](For Zotero, Mendeley, EndNote & Overleaf/LaTeX)[/dim]")
         console.print("  [bold cyan]7.[/bold cyan] Run System & API Health Doctor")
         console.print("  [bold cyan]8.[/bold cyan] Citation Graph Snowballing [dim](Trace forward & backward citations around an anchor paper)[/dim]")
@@ -898,7 +898,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     sub.add_parser("doctor", help="Check connectivity to all Open Access APIs and configured AI providers")
 
     # config subcommand
-    p_cfg = sub.add_parser("config", help="View or update settings in config.json via CLI flags")
+    p_cfg = sub.add_parser("config", help="View or update settings in crawly.json / config.json via CLI flags")
     p_cfg.add_argument("--provider", choices=["ollama", "lmstudio", "openai_compatible", "gemini", "anthropic", "extractive"])
     p_cfg.add_argument("--model", help="Model identifier (e.g. llama3.2, gpt-4o-mini, gemini-2.5-flash)")
     p_cfg.add_argument("--base-url", help="Base URL for Ollama, LM Studio, or OpenAI-compatible server")
@@ -906,7 +906,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p_cfg.add_argument("--temperature", type=float, help="LLM sampling temperature (e.g. 0.2)")
     p_cfg.add_argument("--max-pdf-pages", type=int, help="Max PDF pages to extract per paper (e.g. 25)")
     p_cfg.add_argument("--limit", type=int, help="Default max papers per search source (e.g. 10)")
-    p_cfg.add_argument("--show", action="store_true", help="Display current config.json values")
+    p_cfg.add_argument("--show", action="store_true", help="Display current configuration values")
 
     return parser
 

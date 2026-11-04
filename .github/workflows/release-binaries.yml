@@ -252,6 +252,7 @@ jobs:
             release_assets/crawly.pyz
             release_assets/*.whl
             release_assets/*.tar.gz
+            release_assets/crawly.json
             release_assets/config.json
 
   publish-pypi:
