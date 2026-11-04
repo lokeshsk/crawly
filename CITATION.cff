@@ -10,7 +10,7 @@ type: software
 repository-code: 'https://github.com/lokeshsk/crawly'
 url: 'https://lokeshsk.github.io/crawly/'
 license: GPL-3.0
-version: 2.1.3
+version: 2.2.0
 authors:
   - name: Lokesh Kumar
     email: crawly.theliteratureassistant@gmail.com
