@@ -9,7 +9,7 @@ This document details the planned features, user experience enhancements, and te
 ```
                       ┌──────────────────────────────────────┐
                       │    crawly v2.1.0 (Current Stable)    │
-                      │  8 APIs · OA Waterfall · Snowball   │
+                      │  8 APIs · OA Waterfall · Snowball    │
                       │  Zotero · Watchdog · Gaps · HTML Rep │
                       └──────────────────┬───────────────────┘
                                          │
@@ -164,3 +164,4 @@ This document details the planned features, user experience enhancements, and te
 | **P3** | Cross-Paper Consensus/Contradiction Radar | Medium | Systematic literature reviewers |
 | **P3** | University EZProxy Integration | Medium | University students & faculty |
 | **P3** | Preprint-to-Peer-Reviewed Reconciler | Low | Camera-ready authors |
+

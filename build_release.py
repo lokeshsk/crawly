@@ -45,6 +45,7 @@ BUNDLED_PACKAGES = [
     "charset_normalizer",
     "bs4",
     "soupsieve",
+    "typing_extensions",
     "pypdf",
     "rich",
     "pygments",
